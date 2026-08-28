@@ -1,0 +1,4 @@
+registrazioni/
+*.raw
+*.npy
+__pycache__/

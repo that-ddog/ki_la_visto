@@ -1,0 +1,7 @@
+source ~/kinect-py311/bin/activate
+
+python3 ~/Desktop/ki_la_visto/scripts/depth_grigio.py
+
+
+
+
