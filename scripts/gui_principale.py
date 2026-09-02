@@ -149,10 +149,6 @@ def apri_altre_funzioni():
     print("[AZIONE] Altre funzioni — da collegare")
 
 
-def riduci_a_icona(finestra):
-    finestra.iconify()
-
-
 def chiudi_app(finestra):
     gestore_processi.chiudi_tutto()
     finestra.destroy()
@@ -211,19 +207,6 @@ class AppKinectCamera:
         btn_chiudi.bind("<Button-1>", lambda e: chiudi_app(self.root))
         btn_chiudi.bind("<Enter>", lambda e: btn_chiudi.config(bg=CONFIG["colore_chiudi_hover"]))
         btn_chiudi.bind("<Leave>", lambda e: btn_chiudi.config(bg=CONFIG["colore_barra"]))
-
-        btn_riduci = tk.Label(
-            barra,
-            text=" – ",
-            bg=CONFIG["colore_barra"],
-            fg=CONFIG["colore_testo_barra"],
-            font=CONFIG["font_barra"],
-            cursor="hand2",
-        )
-        btn_riduci.pack(side="right", padx=(0, 4))
-        btn_riduci.bind("<Button-1>", lambda e: riduci_a_icona(self.root))
-        btn_riduci.bind("<Enter>", lambda e: btn_riduci.config(bg=CONFIG["colore_bottone_hover"]))
-        btn_riduci.bind("<Leave>", lambda e: btn_riduci.config(bg=CONFIG["colore_barra"]))
 
     # --- Griglia 2x2 di bottoni principali ---------------------------
     def _crea_griglia_bottoni(self):
