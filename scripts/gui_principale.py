@@ -15,7 +15,18 @@ per cambiare il tema basta modificare questo dizionario, senza toccare il
 resto del codice.
 """
 
+import os
+import subprocess
+import traceback
 import tkinter as tk
+from tkinter import messagebox
+
+# Percorsi verso l'interprete Python del venv e verso lo script depth grigio.
+# Usiamo l'interprete del venv ESPLICITAMENTE (non il "python3" generico),
+# così il pulsante funziona sempre, anche se la GUI fosse avviata in un modo
+# che non ha già attivato il venv.
+VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
+SCRIPT_DEPTH_GRIGIO = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio.py")
 
 # =====================================================================
 # CONFIG — tutto ciò che riguarda l'aspetto grafico sta qui.
@@ -53,8 +64,74 @@ CONFIG = {
 # magari un pulsante della levetta PS2), così restano riutilizzabili
 # senza modifiche quando collegheremo la logica vera.
 # =====================================================================
+class GestoreProcessi:
+    """
+    Tiene traccia dei processi esterni avviati dalla GUI (per ora solo
+    depth_grigio.py). Serve a evitare di aprirne due copie insieme (il
+    Kinect è un dispositivo unico) e a chiuderli quando si chiude l'app
+    principale. È indipendente da Tkinter: in futuro potrà essere
+    richiamato anche da un pulsante fisico/GPIO, non solo dal touch.
+    """
+
+    def __init__(self):
+        self._processo_depth = None
+        self._root = None
+
+    def imposta_finestra_principale(self, root):
+        """Collega la finestra Tk principale, per poterla nascondere/rimostrare
+        quando si apre/chiude una feature a schermo intero come la depth camera."""
+        self._root = root
+
+    def avvia_depth_camera(self):
+        if self._processo_depth is not None and self._processo_depth.poll() is None:
+            print("[AZIONE] Depth camera già in esecuzione, non ne apro un'altra")
+            return
+        print(f"[AZIONE] Avvio depth camera: {VENV_PYTHON} {SCRIPT_DEPTH_GRIGIO}")
+        if not os.path.isfile(VENV_PYTHON):
+            messagebox.showerror(
+                "Errore avvio Depth Camera",
+                f"Non trovo l'interprete del venv qui:\n{VENV_PYTHON}",
+            )
+            return
+        if not os.path.isfile(SCRIPT_DEPTH_GRIGIO):
+            messagebox.showerror(
+                "Errore avvio Depth Camera",
+                f"Non trovo lo script qui:\n{SCRIPT_DEPTH_GRIGIO}",
+            )
+            return
+        try:
+            self._processo_depth = subprocess.Popen([VENV_PYTHON, SCRIPT_DEPTH_GRIGIO])
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Errore avvio Depth Camera", f"Avvio fallito:\n{e}")
+            return
+
+        # Nascondiamo la GUI principale finché la depth camera è aperta, così
+        # la sua finestra (che non è "overrideredirect") si vede sempre in primo
+        # piano invece di restare nascosta dietro la nostra finestra kiosk.
+        if self._root is not None:
+            self._root.withdraw()
+            self._controlla_fine_processo()
+
+    def _controlla_fine_processo(self):
+        """Controlla periodicamente se depth_grigio.py è stato chiuso (es. con ESC);
+        appena finisce, rimostra la GUI principale."""
+        if self._processo_depth is not None and self._processo_depth.poll() is None:
+            self._root.after(500, self._controlla_fine_processo)
+        else:
+            self._root.deiconify()
+            self._root.lift()
+
+    def chiudi_tutto(self):
+        if self._processo_depth is not None and self._processo_depth.poll() is None:
+            self._processo_depth.terminate()
+
+
+gestore_processi = GestoreProcessi()
+
+
 def apri_depth_camera():
-    print("[AZIONE] Depth camera — da collegare")
+    gestore_processi.avvia_depth_camera()
 
 
 def apri_normal_camera():
@@ -74,6 +151,7 @@ def riduci_a_icona(finestra):
 
 
 def chiudi_app(finestra):
+    gestore_processi.chiudi_tutto()
     finestra.destroy()
 
 
@@ -93,6 +171,8 @@ class AppKinectCamera:
         larghezza = self.root.winfo_screenwidth()
         altezza = self.root.winfo_screenheight()
         self.root.geometry(f"{larghezza}x{altezza}+0+0")
+
+        gestore_processi.imposta_finestra_principale(self.root)
 
         self._crea_barra_superiore()
         self._crea_griglia_bottoni()
