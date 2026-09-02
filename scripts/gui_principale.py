@@ -26,7 +26,9 @@ from tkinter import messagebox
 # così il pulsante funziona sempre, anche se la GUI fosse avviata in un modo
 # che non ha già attivato il venv.
 VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
-SCRIPT_DEPTH_GRIGIO = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio.py")
+SCRIPT_DEPTH_1 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio1.py")
+SCRIPT_DEPTH_2 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio2.py")
+SCRIPT_VIDEO_NORMALE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/video_normale.py")
 
 # =====================================================================
 # CONFIG — tutto ciò che riguarda l'aspetto grafico sta qui.
@@ -54,7 +56,7 @@ CONFIG = {
 
     # Testo
     "titolo_finestra": "KINECT CAMERA",
-    "etichette": ["DEPTH CAMERA", "NORMAL CAMERA", "MEDIA", "ALTRE FUNZIONI"],
+    "etichette": ["DEPTH CAMERA 1", "DEPTH CAMERA 2", "NORMAL CAMERA", "ALTRE FUNZIONI"],
 }
 
 
@@ -66,80 +68,81 @@ CONFIG = {
 # =====================================================================
 class GestoreProcessi:
     """
-    Tiene traccia dei processi esterni avviati dalla GUI (per ora solo
-    depth_grigio.py). Serve a evitare di aprirne due copie insieme (il
-    Kinect è un dispositivo unico) e a chiuderli quando si chiude l'app
-    principale. È indipendente da Tkinter: in futuro potrà essere
-    richiamato anche da un pulsante fisico/GPIO, non solo dal touch.
+    Tiene traccia del processo esterno attualmente aperto (una qualunque
+    delle viste Kinect: depth 1, depth 2, video normale...). Il Kinect è
+    un dispositivo unico: evitiamo di aprire due viste insieme, qualunque
+    combinazione. Nasconde la GUI principale mentre una vista è aperta e
+    la rimostra da sola alla chiusura (ESC). È indipendente da Tkinter: in
+    futuro potrà essere richiamato anche da un pulsante fisico/GPIO.
     """
 
     def __init__(self):
-        self._processo_depth = None
+        self._processo_corrente = None
         self._root = None
 
     def imposta_finestra_principale(self, root):
         """Collega la finestra Tk principale, per poterla nascondere/rimostrare
-        quando si apre/chiude una feature a schermo intero come la depth camera."""
+        quando si apre/chiude una feature a schermo intero come una camera."""
         self._root = root
 
-    def avvia_depth_camera(self):
-        if self._processo_depth is not None and self._processo_depth.poll() is None:
-            print("[AZIONE] Depth camera già in esecuzione, non ne apro un'altra")
+    def avvia_script(self, percorso_script):
+        if self._processo_corrente is not None and self._processo_corrente.poll() is None:
+            print("[AZIONE] C'è già una vista Kinect aperta: chiudila (ESC) prima di aprirne un'altra")
             return
-        print(f"[AZIONE] Avvio depth camera: {VENV_PYTHON} {SCRIPT_DEPTH_GRIGIO}")
+        print(f"[AZIONE] Avvio: {VENV_PYTHON} {percorso_script}")
         if not os.path.isfile(VENV_PYTHON):
             messagebox.showerror(
-                "Errore avvio Depth Camera",
+                "Errore avvio",
                 f"Non trovo l'interprete del venv qui:\n{VENV_PYTHON}",
             )
             return
-        if not os.path.isfile(SCRIPT_DEPTH_GRIGIO):
+        if not os.path.isfile(percorso_script):
             messagebox.showerror(
-                "Errore avvio Depth Camera",
-                f"Non trovo lo script qui:\n{SCRIPT_DEPTH_GRIGIO}",
+                "Errore avvio",
+                f"Non trovo lo script qui:\n{percorso_script}",
             )
             return
         try:
-            self._processo_depth = subprocess.Popen([VENV_PYTHON, SCRIPT_DEPTH_GRIGIO])
+            self._processo_corrente = subprocess.Popen([VENV_PYTHON, percorso_script])
         except Exception as e:
             traceback.print_exc()
-            messagebox.showerror("Errore avvio Depth Camera", f"Avvio fallito:\n{e}")
+            messagebox.showerror("Errore avvio", f"Avvio fallito:\n{e}")
             return
 
-        # Nascondiamo la GUI principale finché la depth camera è aperta, così
-        # la sua finestra (che non è "overrideredirect") si vede sempre in primo
+        # Nascondiamo la GUI principale finché la vista è aperta, così la sua
+        # finestra (che non è "overrideredirect") si vede sempre in primo
         # piano invece di restare nascosta dietro la nostra finestra kiosk.
         if self._root is not None:
             self._root.withdraw()
             self._controlla_fine_processo()
 
     def _controlla_fine_processo(self):
-        """Controlla periodicamente se depth_grigio.py è stato chiuso (es. con ESC);
+        """Controlla periodicamente se lo script è stato chiuso (es. con ESC);
         appena finisce, rimostra la GUI principale."""
-        if self._processo_depth is not None and self._processo_depth.poll() is None:
+        if self._processo_corrente is not None and self._processo_corrente.poll() is None:
             self._root.after(500, self._controlla_fine_processo)
         else:
             self._root.deiconify()
             self._root.lift()
 
     def chiudi_tutto(self):
-        if self._processo_depth is not None and self._processo_depth.poll() is None:
-            self._processo_depth.terminate()
+        if self._processo_corrente is not None and self._processo_corrente.poll() is None:
+            self._processo_corrente.terminate()
 
 
 gestore_processi = GestoreProcessi()
 
 
-def apri_depth_camera():
-    gestore_processi.avvia_depth_camera()
+def apri_depth_camera_1():
+    gestore_processi.avvia_script(SCRIPT_DEPTH_1)
+
+
+def apri_depth_camera_2():
+    gestore_processi.avvia_script(SCRIPT_DEPTH_2)
 
 
 def apri_normal_camera():
-    print("[AZIONE] Normal camera — da collegare")
-
-
-def apri_media():
-    print("[AZIONE] Media — da collegare")
+    gestore_processi.avvia_script(SCRIPT_VIDEO_NORMALE)
 
 
 def apri_altre_funzioni():
@@ -232,7 +235,7 @@ class AppKinectCamera:
             contenitore.rowconfigure(i, weight=1)
             contenitore.columnconfigure(i, weight=1)
 
-        azioni = [apri_depth_camera, apri_normal_camera, apri_media, apri_altre_funzioni]
+        azioni = [apri_depth_camera_1, apri_depth_camera_2, apri_normal_camera, apri_altre_funzioni]
         etichette = CONFIG["etichette"]
         posizioni = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
