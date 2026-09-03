@@ -2,13 +2,11 @@
 """
 gui_principale.py
 ------------------
-GUI principale dell'app "Kinect Camera v1" - PROTOTIPO GRAFICO.
+GUI principale dell'app "Kinect Camera v1".
 
-Oggi ci occupiamo SOLO della grafica: quattro pulsanti (Depth Camera,
-Normal Camera, Media, Altre Funzioni) e una barra superiore custom con
-pulsanti per ridurre a icona e chiudere. Le funzioni collegate ai pulsanti
-sono ancora dei segnaposto (stampano solo un messaggio in console): le
-riempiremo di logica vera nei prossimi passaggi.
+Griglia 2x4 (8 caselle): quattro modalità depth camera, la normal camera,
+altre funzioni, e due caselle ancora vuote/disattivate, pronte per quando
+decideremo cosa metterci.
 
 Tutti i colori, i font e le dimensioni sono raccolti in CONFIG qui sotto:
 per cambiare il tema basta modificare questo dizionario, senza toccare il
@@ -21,13 +19,15 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox
 
-# Percorsi verso l'interprete Python del venv e verso lo script depth grigio.
+# Percorsi verso l'interprete Python del venv e verso gli script Kinect.
 # Usiamo l'interprete del venv ESPLICITAMENTE (non il "python3" generico),
-# così il pulsante funziona sempre, anche se la GUI fosse avviata in un modo
+# così i pulsanti funzionano sempre, anche se la GUI fosse avviata in un modo
 # che non ha già attivato il venv.
 VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
 SCRIPT_DEPTH_1 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio1.py")
 SCRIPT_DEPTH_2 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio2.py")
+SCRIPT_DEPTH_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio3.py")
+SCRIPT_DEPTH_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio4.py")
 SCRIPT_VIDEO_NORMALE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/video_normale.py")
 
 # =====================================================================
@@ -44,24 +44,33 @@ CONFIG = {
     "colore_testo_barra": "#dddddd",    # testo/icone barra superiore
     "colore_chiudi_hover": "#c0392b",   # rosso quando si sfiora la X
 
+    # Caselle ancora vuote/disattivate (le due in fondo alla griglia)
+    "colore_bottone_vuoto": "#333333",
+    "colore_testo_vuoto": "#666666",
+
     # Font
-    "font_bottone": ("DejaVu Sans", 18, "bold"),
+    "font_bottone": ("DejaVu Sans", 15, "bold"),  # ridotto un filo: ora ci sono 4 colonne
     "font_barra": ("DejaVu Sans", 14, "bold"),
     "font_titolo": ("DejaVu Sans", 12),
 
     # Dimensioni
     "altezza_barra": 40,
-    "padding_griglia": 14,
+    "padding_griglia": 10,
     "bordo_bottone": 0,   # spessore bordo bottoni (0 = piatto/flat)
 
-    # Testo
+    # Testo (8 etichette per la griglia 2x4; "\n" va a capo dentro il pulsante,
+    # utile perché con 4 colonne lo spazio orizzontale è poco. Le ultime due
+    # vuote = caselle disattivate.
     "titolo_finestra": "KINECT CAMERA",
-    "etichette": ["DEPTH CAMERA 1", "DEPTH CAMERA 2", "NORMAL CAMERA", "ALTRE FUNZIONI"],
+    "etichette": [
+        "DEPTH\nCAMERA 1", "DEPTH\nCAMERA 2", "DEPTH\nCAMERA 3", "DEPTH\nCAMERA 4",
+        "NORMAL\nCAMERA", "ALTRE\nFUNZIONI", "", "",
+    ],
 }
 
 
 # =====================================================================
-# Funzioni "azione" — segnaposto per ora.
+# Funzioni "azione".
 # Scritte indipendenti da chi le chiama (bottone touch, e in futuro
 # magari un pulsante della levetta PS2), così restano riutilizzabili
 # senza modifiche quando collegheremo la logica vera.
@@ -69,8 +78,8 @@ CONFIG = {
 class GestoreProcessi:
     """
     Tiene traccia del processo esterno attualmente aperto (una qualunque
-    delle viste Kinect: depth 1, depth 2, video normale...). Il Kinect è
-    un dispositivo unico: evitiamo di aprire due viste insieme, qualunque
+    delle viste Kinect: depth 1-4, video normale...). Il Kinect è un
+    dispositivo unico: evitiamo di aprire due viste insieme, qualunque
     combinazione. Nasconde la GUI principale mentre una vista è aperta e
     la rimostra da sola alla chiusura (ESC). È indipendente da Tkinter: in
     futuro potrà essere richiamato anche da un pulsante fisico/GPIO.
@@ -141,6 +150,14 @@ def apri_depth_camera_2():
     gestore_processi.avvia_script(SCRIPT_DEPTH_2)
 
 
+def apri_depth_camera_3():
+    gestore_processi.avvia_script(SCRIPT_DEPTH_3)
+
+
+def apri_depth_camera_4():
+    gestore_processi.avvia_script(SCRIPT_DEPTH_4)
+
+
 def apri_normal_camera():
     gestore_processi.avvia_script(SCRIPT_VIDEO_NORMALE)
 
@@ -163,8 +180,7 @@ class AppKinectCamera:
         self.root.title(CONFIG["titolo_finestra"])
         self.root.configure(bg=CONFIG["colore_sfondo"])
 
-        # Finestra senza bordi/barra di sistema: la barra la disegniamo noi,
-        # così su un touchscreen senza tastiera si può sempre chiudere/ridurre.
+        # Finestra senza bordi/barra di sistema: la barra la disegniamo noi.
         self.root.overrideredirect(True)
 
         larghezza = self.root.winfo_screenwidth()
@@ -208,7 +224,7 @@ class AppKinectCamera:
         btn_chiudi.bind("<Enter>", lambda e: btn_chiudi.config(bg=CONFIG["colore_chiudi_hover"]))
         btn_chiudi.bind("<Leave>", lambda e: btn_chiudi.config(bg=CONFIG["colore_barra"]))
 
-    # --- Griglia 2x2 di bottoni principali ---------------------------
+    # --- Griglia 2x4 di bottoni principali ---------------------------
     def _crea_griglia_bottoni(self):
         contenitore = tk.Frame(self.root, bg=CONFIG["colore_sfondo"])
         contenitore.pack(expand=True, fill="both",
@@ -216,24 +232,38 @@ class AppKinectCamera:
 
         for i in range(2):
             contenitore.rowconfigure(i, weight=1)
+        for i in range(4):
             contenitore.columnconfigure(i, weight=1)
 
-        azioni = [apri_depth_camera_1, apri_depth_camera_2, apri_normal_camera, apri_altre_funzioni]
+        # None = casella vuota/disattivata (le ultime due, per ora)
+        azioni = [
+            apri_depth_camera_1,
+            apri_depth_camera_2,
+            apri_depth_camera_3,
+            apri_depth_camera_4,
+            apri_normal_camera,
+            apri_altre_funzioni,
+            None,
+            None,
+        ]
         etichette = CONFIG["etichette"]
-        posizioni = [(0, 0), (0, 1), (1, 0), (1, 1)]
+        posizioni = [(0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (1, 1), (1, 2), (1, 3)]
 
         for (riga, colonna), etichetta, azione in zip(posizioni, etichette, azioni):
+            attiva = azione is not None
             bottone = tk.Button(
                 contenitore,
-                text=etichetta,
+                text=etichetta if attiva else "",
                 font=CONFIG["font_bottone"],
-                bg=CONFIG["colore_bottone"],
-                fg=CONFIG["colore_testo"],
+                justify="center",
+                bg=CONFIG["colore_bottone"] if attiva else CONFIG["colore_bottone_vuoto"],
+                fg=CONFIG["colore_testo"] if attiva else CONFIG["colore_testo_vuoto"],
                 activebackground=CONFIG["colore_bottone_hover"],
                 activeforeground=CONFIG["colore_testo"],
                 relief="flat",
                 bd=CONFIG["bordo_bottone"],
-                command=azione,
+                command=azione if attiva else None,
+                state="normal" if attiva else "disabled",
             )
             bottone.grid(
                 row=riga, column=colonna,

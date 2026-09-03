@@ -1,64 +1,72 @@
 import sys
-import signal
+import queue
+import multiprocessing as mp
 
-import freenect
+import numpy as np
 import cv2
-import tkinter as tk
 
 NOME_FINESTRA = "Normal Camera"
-TIMEOUT_SECONDI = 3  # se una chiamata freenect impiega più di così, ci fermiamo da soli
 
 
-class TimeoutFreenect(Exception):
-    pass
-
-
-def _gestore_timeout(signum, frame):
-    raise TimeoutFreenect()
-
-
-signal.signal(signal.SIGALRM, _gestore_timeout)
-
-# Misuriamo la risoluzione dello schermo con un Tk "usa e getta", ed evitiamo
-# la modalità fullscreen ESCLUSIVA di OpenCV (WND_PROP_FULLSCREEN): su questo
-# sistema, con backend Qt sotto un ambiente che prova Wayland, quella
-# modalità può bloccare la finestra e non rispondere più a nulla (come hai
-# visto). Una finestra normale ridimensionata a schermo intero è quasi
-# identica visivamente, ma resta sempre "viva" e ha i bordi di sistema come
-# rete di sicurezza in più.
-_tmp = tk.Tk()
-LARGHEZZA_SCHERMO = _tmp.winfo_screenwidth()
-ALTEZZA_SCHERMO = _tmp.winfo_screenheight()
-_tmp.destroy()
-
-print("Premi ESC nella finestra per uscire")
-
-cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
-cv2.resizeWindow(NOME_FINESTRA, LARGHEZZA_SCHERMO, ALTEZZA_SCHERMO)
-cv2.moveWindow(NOME_FINESTRA, 0, 0)
-
-try:
+def _processo_cattura(coda):
+    """
+    Gira in un PROCESSO SEPARATO (non solo un thread): prende i frame dal
+    Kinect e li mette in coda. Isolandolo così, se la chiamata a freenect si
+    blocca dentro il codice nativo, blocca solo questo processo — la
+    finestra e i tasti nel processo principale restano sempre reattivi,
+    perché non stanno più aspettando direttamente il Kinect.
+    """
+    import freenect  # import qui dentro: ogni processo ha il suo contesto
     while True:
-        signal.alarm(TIMEOUT_SECONDI)
+        video, _ = freenect.sync_get_video()
+        # teniamo in coda solo l'ultimo frame: se il processo principale è
+        # più lento, scartiamo i frame vecchi invece di accumularli
         try:
-            video, timestamp = freenect.sync_get_video()
-        except TimeoutFreenect:
-            print(f"[ERRORE] freenect.sync_get_video() bloccato per più di {TIMEOUT_SECONDI}s, esco.")
-            break
-        finally:
-            signal.alarm(0)
+            while True:
+                coda.get_nowait()
+        except queue.Empty:
+            pass
+        coda.put(video)
 
-        if video is None:
-            print("Nessun frame ricevuto, esco.")
-            break
 
-        video_bgr = cv2.cvtColor(video, cv2.COLOR_RGB2BGR)
-        cv2.imshow(NOME_FINESTRA, video_bgr)
+def main():
+    coda = mp.Queue(maxsize=1)
+    processo = mp.Process(target=_processo_cattura, args=(coda,), daemon=True)
+    processo.start()
 
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
-except KeyboardInterrupt:
-    pass
+    print("Premi ESC nella finestra per uscire")
+    cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
 
-cv2.destroyAllWindows()
-sys.exit(0)
+    ultimo_frame = None
+    schermata_attesa = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(schermata_attesa, "In attesa del Kinect...", (60, 240),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+    try:
+        while True:
+            # Aspettiamo un frame per massimo 0.05s: se non arriva, non è
+            # un problema, il ciclo continua comunque e ESC resta reattivo.
+            try:
+                video = coda.get(timeout=0.05)
+                ultimo_frame = cv2.cvtColor(video, cv2.COLOR_RGB2BGR)
+            except queue.Empty:
+                pass
+
+            cv2.imshow(NOME_FINESTRA, ultimo_frame if ultimo_frame is not None else schermata_attesa)
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+    finally:
+        # Chiudiamo il processo di cattura senza pietà: se è bloccato nel
+        # driver, un terminate/kill lo interrompe comunque dall'esterno.
+        processo.terminate()
+        processo.join(timeout=1)
+        if processo.is_alive():
+            processo.kill()
+        cv2.destroyAllWindows()
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
