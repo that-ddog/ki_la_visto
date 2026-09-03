@@ -15,6 +15,7 @@ resto del codice.
 
 import os
 import subprocess
+import shutil
 import traceback
 import tkinter as tk
 from tkinter import messagebox
@@ -30,6 +31,10 @@ SCRIPT_DEPTH_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio3
 SCRIPT_DEPTH_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio4.py")
 SCRIPT_VIDEO_NORMALE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/video_normale.py")
 
+# chocolate-doom è un pacchetto di sistema (non vive nel venv): lo cerchiamo
+# nel PATH, con un percorso di riserva nel caso non venisse trovato lì.
+COMANDO_DOOM = shutil.which("chocolate-doom") or "/usr/games/chocolate-doom"
+
 # =====================================================================
 # CONFIG — tutto ciò che riguarda l'aspetto grafico sta qui.
 # Cambia questi valori per modificare colori, font, dimensioni.
@@ -43,6 +48,7 @@ CONFIG = {
     "colore_testo": "#f0f0f0",          # testo bottoni
     "colore_testo_barra": "#dddddd",    # testo/icone barra superiore
     "colore_chiudi_hover": "#c0392b",   # rosso quando si sfiora la X
+    "colore_doom": "#ff3b30",           # rosso acceso per l'easter egg DOOM
 
     # Caselle ancora vuote/disattivate (le due in fondo alla griglia)
     "colore_bottone_vuoto": "#333333",
@@ -95,10 +101,6 @@ class GestoreProcessi:
         self._root = root
 
     def avvia_script(self, percorso_script):
-        if self._processo_corrente is not None and self._processo_corrente.poll() is None:
-            print("[AZIONE] C'è già una vista Kinect aperta: chiudila (ESC) prima di aprirne un'altra")
-            return
-        print(f"[AZIONE] Avvio: {VENV_PYTHON} {percorso_script}")
         if not os.path.isfile(VENV_PYTHON):
             messagebox.showerror(
                 "Errore avvio",
@@ -111,8 +113,26 @@ class GestoreProcessi:
                 f"Non trovo lo script qui:\n{percorso_script}",
             )
             return
+        self.avvia_processo([VENV_PYTHON, percorso_script])
+
+    def avvia_doom(self):
+        if not os.path.isfile(COMANDO_DOOM):
+            messagebox.showerror(
+                "Errore avvio DOOM",
+                f"Non trovo l'eseguibile chocolate-doom qui:\n{COMANDO_DOOM}\n"
+                "Verifica che sia installato (sudo apt install chocolate-doom).",
+            )
+            return
+        self.avvia_processo([COMANDO_DOOM])
+
+    def avvia_processo(self, comando):
+        """comando: lista tipo ['chocolate-doom'] oppure [VENV_PYTHON, percorso_script]."""
+        if self._processo_corrente is not None and self._processo_corrente.poll() is None:
+            print("[AZIONE] C'è già qualcosa in esecuzione: chiudilo prima di aprire altro")
+            return
+        print(f"[AZIONE] Avvio: {' '.join(comando)}")
         try:
-            self._processo_corrente = subprocess.Popen([VENV_PYTHON, percorso_script])
+            self._processo_corrente = subprocess.Popen(comando)
         except Exception as e:
             traceback.print_exc()
             messagebox.showerror("Errore avvio", f"Avvio fallito:\n{e}")
@@ -162,6 +182,10 @@ def apri_normal_camera():
     gestore_processi.avvia_script(SCRIPT_VIDEO_NORMALE)
 
 
+def apri_doom():
+    gestore_processi.avvia_doom()
+
+
 def apri_altre_funzioni():
     print("[AZIONE] Altre funzioni — da collegare")
 
@@ -201,6 +225,19 @@ class AppKinectCamera:
         )
         barra.pack(side="top", fill="x")
         barra.pack_propagate(False)
+
+        btn_doom = tk.Label(
+            barra,
+            text=" D ",
+            bg=CONFIG["colore_barra"],
+            fg=CONFIG["colore_doom"],
+            font=CONFIG["font_barra"],
+            cursor="hand2",
+        )
+        btn_doom.pack(side="left", padx=(10, 0))
+        btn_doom.bind("<Button-1>", lambda e: apri_doom())
+        btn_doom.bind("<Enter>", lambda e: btn_doom.config(bg=CONFIG["colore_bottone_hover"]))
+        btn_doom.bind("<Leave>", lambda e: btn_doom.config(bg=CONFIG["colore_barra"]))
 
         titolo = tk.Label(
             barra,
