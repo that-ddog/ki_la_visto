@@ -278,16 +278,22 @@ def disegna_overlay(frame_bgr_pulito):
 
     # --- Pausa / play: visibile solo durante la registrazione ---
     if registrazione.attiva:
+        # Cerchio guida sempre presente (come per REC e FOTO), così l'icona
+        # non rischia di sparire nel rumore dell'immagine sotto.
+        cv2.circle(frame, (X_ICONE, Y_PAUSA), RAGGIO_ICONA, (255, 255, 255), 2)
+
         if registrazione.in_pausa:
+            # triangolo "play" pieno
             pts = np.array([
-                [X_ICONE - 9, Y_PAUSA - 13],
-                [X_ICONE - 9, Y_PAUSA + 13],
-                [X_ICONE + 13, Y_PAUSA],
+                [X_ICONE - 8, Y_PAUSA - 12],
+                [X_ICONE - 8, Y_PAUSA + 12],
+                [X_ICONE + 12, Y_PAUSA],
             ])
             cv2.fillPoly(frame, [pts], (255, 255, 255))
         else:
-            cv2.rectangle(frame, (X_ICONE - 12, Y_PAUSA - 13), (X_ICONE - 4, Y_PAUSA + 13), (255, 255, 255), -1)
-            cv2.rectangle(frame, (X_ICONE + 4, Y_PAUSA - 13), (X_ICONE + 12, Y_PAUSA + 13), (255, 255, 255), -1)
+            # due barrette "pausa"
+            cv2.rectangle(frame, (X_ICONE - 10, Y_PAUSA - 11), (X_ICONE - 3, Y_PAUSA + 11), (255, 255, 255), -1)
+            cv2.rectangle(frame, (X_ICONE + 3, Y_PAUSA - 11), (X_ICONE + 10, Y_PAUSA + 11), (255, 255, 255), -1)
 
     # --- Icona in alto a sinistra: pallino REC lampeggiante o simbolo pausa fisso ---
     if registrazione.attiva:
