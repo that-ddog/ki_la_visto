@@ -30,6 +30,7 @@ SCRIPT_DEPTH_2 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio2
 SCRIPT_DEPTH_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio3.py")
 SCRIPT_DEPTH_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio4.py")
 SCRIPT_VIDEO_NORMALE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/video_normale.py")
+SCRIPT_CAMERA_AVANZATA = os.path.expanduser("~/Desktop/ki_la_visto/scripts/camera_avanzata.py")
 
 # chocolate-doom è un pacchetto di sistema (non vive nel venv): lo cerchiamo
 # nel PATH, con un percorso di riserva nel caso non venisse trovato lì.
@@ -70,7 +71,7 @@ CONFIG = {
     "titolo_finestra": "KINECT CAMERA",
     "etichette": [
         "DEPTH\nCAMERA 1", "DEPTH\nCAMERA 2", "DEPTH\nCAMERA 3", "DEPTH\nCAMERA 4",
-        "NORMAL\nCAMERA", "ALTRE\nFUNZIONI", "", "",
+        "NORMAL\nCAMERA", "ALTRE\nFUNZIONI", "CAMERA\nAVANZATA", "",
     ],
 }
 
@@ -182,6 +183,10 @@ def apri_normal_camera():
     gestore_processi.avvia_script(SCRIPT_VIDEO_NORMALE)
 
 
+def apri_camera_avanzata():
+    gestore_processi.avvia_script(SCRIPT_CAMERA_AVANZATA)
+
+
 def apri_doom():
     gestore_processi.avvia_doom()
 
@@ -280,7 +285,7 @@ class AppKinectCamera:
             apri_depth_camera_4,
             apri_normal_camera,
             apri_altre_funzioni,
-            None,
+            apri_camera_avanzata,
             None,
         ]
         etichette = CONFIG["etichette"]
