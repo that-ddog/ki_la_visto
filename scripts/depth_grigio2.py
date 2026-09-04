@@ -1,30 +1,24 @@
-import freenect
+import sys
+import queue
+
 import numpy as np
 import cv2
 
-NOME_FINESTRA = "Depth Camera 1"
+from kinect_safe import avvia_cattura, ferma_cattura
+from overlay_rec import ControlliOverlay
+
+NOME_FINESTRA = "Depth Camera 2"
 
 # --- Parametri regolabili --------------------------------------------------
-# Range di distanza (in millimetri) su cui vogliamo un buon contrasto.
-# Il Kinect v1 è affidabile all'incirca tra 500mm e 3000-3500mm: sotto o
-# sopra questi valori il sensore restituisce 0 ("nessun dato"), è un limite
-# fisico del sensore, non un bug. Puoi aggiustare questi due numeri per
-# stringere/allargare la zona a fuoco visivo.
 DISTANZA_MIN_MM = 400
 DISTANZA_MAX_MM = 6000
 
-# Riduce il rumore "sale e pepe" tipico del sensore Kinect v1.
-# Deve essere un numero dispari; metti 0 o 1 per disattivare il filtro.
 DIMENSIONE_FILTRO_RUMORE = 5
 
 
 def depth_in_grigio(depth_mm):
-    """
-    Converte una matrice di depth in millimetri in un'immagine grigia a 8 bit:
-      - contrasto stabile, basato su un range fisso
-      - pixel senza dato valido (troppo vicino/lontano) resi neri
-      - filtro mediano leggero per ripulire il rumore pixel-per-pixel
-    """
+    """Mappatura lineare: contrasto stabile su range fisso, pixel senza dato
+    valido resi neri, filtro mediano per il rumore pixel-per-pixel."""
     maschera_valida = depth_mm > 0
 
     depth_clip = np.clip(depth_mm, DISTANZA_MIN_MM, DISTANZA_MAX_MM)
@@ -40,16 +34,48 @@ def depth_in_grigio(depth_mm):
     return grigio
 
 
-print("Premi ESC nella finestra per uscire")
-
-cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
-cv2.setWindowProperty(NOME_FINESTRA, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-while True:
+def cattura_un_frame():
+    """Gira nel PROCESSO SEPARATO: legge un frame calibrato in mm dal Kinect
+    e lo converte già in grigio, così il processo principale deve solo
+    mostrarlo."""
+    import freenect
     depth_mm, _ = freenect.sync_get_depth(format=freenect.DEPTH_MM)
-    grigio = depth_in_grigio(depth_mm)
-    cv2.imshow(NOME_FINESTRA, grigio)
-    if cv2.waitKey(1) == 27:
-        break
+    return depth_in_grigio(depth_mm)
 
-cv2.destroyAllWindows()
+
+def main():
+    processo, coda = avvia_cattura(cattura_un_frame)
+    controlli = ControlliOverlay(con_gamma=False)
+
+    print("Premi ESC nella finestra per uscire")
+    cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty(NOME_FINESTRA, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.setMouseCallback(NOME_FINESTRA, controlli.on_mouse)
+
+    ultimo_frame_grigio = np.zeros((480, 640), dtype=np.uint8)
+    cv2.putText(ultimo_frame_grigio, "In attesa del Kinect...", (60, 240),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
+
+    try:
+        while True:
+            try:
+                ultimo_frame_grigio = coda.get(timeout=0.05)
+            except queue.Empty:
+                pass
+
+            frame_pulito = cv2.cvtColor(ultimo_frame_grigio, cv2.COLOR_GRAY2BGR)
+            controlli.gestisci_frame(frame_pulito)
+            cv2.imshow(NOME_FINESTRA, controlli.disegna(frame_pulito))
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+    finally:
+        controlli.chiudi()
+        ferma_cattura(processo)
+        cv2.destroyAllWindows()
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

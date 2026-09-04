@@ -1,68 +1,57 @@
 import sys
 import queue
-import multiprocessing as mp
 
 import numpy as np
 import cv2
 
+from kinect_safe import avvia_cattura, ferma_cattura
+from overlay_rec import ControlliOverlay
+
 NOME_FINESTRA = "Normal Camera"
 
+# NOTA: qui non tocchiamo la geometria della finestra (niente resize/move a
+# schermo intero, niente fullscreen) perché su questo sistema (Qt + ambiente
+# che tenta Wayland) manipolare la finestra di OpenCV può bloccare tutto il
+# processo. La finestra resta quindi a dimensione di default: meno "wow",
+# ma stabile. Nessuna gamma qui (è un flusso RGB, non depth), quindi la
+# levetta non compare.
 
-def _processo_cattura(coda):
-    """
-    Gira in un PROCESSO SEPARATO (non solo un thread): prende i frame dal
-    Kinect e li mette in coda. Isolandolo così, se la chiamata a freenect si
-    blocca dentro il codice nativo, blocca solo questo processo — la
-    finestra e i tasti nel processo principale restano sempre reattivi,
-    perché non stanno più aspettando direttamente il Kinect.
-    """
-    import freenect  # import qui dentro: ogni processo ha il suo contesto
-    while True:
-        video, _ = freenect.sync_get_video()
-        # teniamo in coda solo l'ultimo frame: se il processo principale è
-        # più lento, scartiamo i frame vecchi invece di accumularli
-        try:
-            while True:
-                coda.get_nowait()
-        except queue.Empty:
-            pass
-        coda.put(video)
+
+def cattura_un_frame():
+    """Gira nel PROCESSO SEPARATO: legge un frame RGB dal Kinect e lo
+    converte già in BGR per OpenCV."""
+    import freenect
+    video, _ = freenect.sync_get_video()
+    return cv2.cvtColor(video, cv2.COLOR_RGB2BGR)
 
 
 def main():
-    coda = mp.Queue(maxsize=1)
-    processo = mp.Process(target=_processo_cattura, args=(coda,), daemon=True)
-    processo.start()
+    processo, coda = avvia_cattura(cattura_un_frame)
+    controlli = ControlliOverlay(con_gamma=False)
 
     print("Premi ESC nella finestra per uscire")
     cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(NOME_FINESTRA, controlli.on_mouse)
 
-    ultimo_frame = None
-    schermata_attesa = np.zeros((480, 640, 3), dtype=np.uint8)
-    cv2.putText(schermata_attesa, "In attesa del Kinect...", (60, 240),
+    ultimo_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(ultimo_frame, "In attesa del Kinect...", (60, 240),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
     try:
         while True:
-            # Aspettiamo un frame per massimo 0.05s: se non arriva, non è
-            # un problema, il ciclo continua comunque e ESC resta reattivo.
             try:
-                video = coda.get(timeout=0.05)
-                ultimo_frame = cv2.cvtColor(video, cv2.COLOR_RGB2BGR)
+                ultimo_frame = coda.get(timeout=0.05)
             except queue.Empty:
                 pass
 
-            cv2.imshow(NOME_FINESTRA, ultimo_frame if ultimo_frame is not None else schermata_attesa)
+            controlli.gestisci_frame(ultimo_frame)
+            cv2.imshow(NOME_FINESTRA, controlli.disegna(ultimo_frame))
 
             if cv2.waitKey(1) & 0xFF == 27:
                 break
     finally:
-        # Chiudiamo il processo di cattura senza pietà: se è bloccato nel
-        # driver, un terminate/kill lo interrompe comunque dall'esterno.
-        processo.terminate()
-        processo.join(timeout=1)
-        if processo.is_alive():
-            processo.kill()
+        controlli.chiudi()
+        ferma_cattura(processo)
         cv2.destroyAllWindows()
 
     sys.exit(0)
