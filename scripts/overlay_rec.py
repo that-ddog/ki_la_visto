@@ -1,10 +1,9 @@
 """
 overlay_rec.py
 ----------------
-Overlay e controlli di registrazione (REC/pausa/foto, più la levetta gamma
-opzionale) condivisi da tutti gli script che mostrano un flusso Kinect a
-schermo intero. Un unico posto dove vive questa logica, così ogni script
-depth/video la eredita gratis invece di duplicarla.
+Overlay e controlli di registrazione (REC/pausa/foto/X, più la levetta
+gamma e le frecce cambio-modalità, entrambe opzionali) condivisi da tutti
+gli script che mostrano un flusso Kinect a schermo intero.
 
 Uso tipico in uno script:
 
@@ -18,9 +17,11 @@ Uso tipico in uno script:
         frame_pulito = ...  # il tuo frame BGR, SENZA overlay
         controlli.gestisci_frame(frame_pulito)          # scrive video / salva foto
         cv2.imshow(NOME_FINESTRA, controlli.disegna(frame_pulito))
-        ...
 
-    controlli.chiudi()  # alla fine, per chiudere bene un'eventuale REC aperta
+        if cv2.waitKey(1) & 0xFF == 27 or controlli.richiesta_uscita:
+            break
+
+    controlli.chiudi()  # chiude bene un'eventuale REC ancora aperta, salvando la clip
 """
 
 import os
@@ -91,11 +92,14 @@ class Registrazione:
         print(f"[REC] Avviata: {self.percorso_clip}")
 
     def ferma(self):
+        """Chiude e salva il file. Chiamata sia dal pulsante REC/stop sia
+        automaticamente all'uscita dello script (vedi ControlliOverlay.chiudi),
+        così una clip in corso non va MAI persa, anche se esci con ESC o X."""
         if not self.attiva:
             return
         if self.writer is not None:
             self.writer.release()
-        print(f"[REC] Fermata: {self.percorso_clip}  ({self.secondi_registrati:.1f}s)")
+        print(f"[REC] Fermata e salvata: {self.percorso_clip}  ({self.secondi_registrati:.1f}s)")
         self.attiva = False
         self.in_pausa = False
         self.writer = None
@@ -132,16 +136,18 @@ def salva_foto(frame_bgr_pulito):
 
 class ControlliOverlay:
     """
-    Incapsula le icone cliccabili (REC/foto/pausa) e, se richiesto, la
-    levetta gamma. Un'istanza per script.
+    Incapsula le icone cliccabili: X (esci), REC/foto/pausa sempre, e in
+    più, se richiesto, la levetta gamma e le frecce cambio-modalità.
     """
 
     def __init__(self, larghezza=LARGHEZZA_DEFAULT, altezza=ALTEZZA_DEFAULT,
-                 con_gamma=False, stato_gamma=None, gamma_min=0.2, gamma_max=3.0):
+                 con_gamma=False, stato_gamma=None, gamma_min=0.2, gamma_max=3.0,
+                 con_modo=False, stato_modo=None, modo_min=1, modo_max=4):
         self.larghezza = larghezza
         self.altezza = altezza
         self.registrazione = Registrazione(larghezza, altezza)
         self.richiesta_foto = False
+        self.richiesta_uscita = False
         self.trascinamento_levetta = False
 
         self.con_gamma = con_gamma
@@ -149,17 +155,35 @@ class ControlliOverlay:
         self.gamma_min = gamma_min
         self.gamma_max = gamma_max
 
-        # Geometria icone, in coordinate immagine (si adatta a larghezza/altezza)
-        self.x_icone = larghezza - 35
-        self.raggio_icona = 22
-        self.y_foto = 60
-        self.y_rec = altezza // 2
-        self.y_pausa = altezza - 60
+        self.con_modo = con_modo
+        self.stato_modo = stato_modo  # dict con chiave "modalita", del chiamante
+        self.modo_min = modo_min
+        self.modo_max = modo_max
 
+        # Icone REC/foto/pausa raggruppate vicino al centro, a destra.
+        self.x_icone = larghezza - 35
+        self.raggio_icona = 20
+        self.y_rec = altezza // 2
+        self.y_foto = self.y_rec - 65
+        self.y_pausa = self.y_rec + 65
+
+        # X in alto a destra: sempre presente, indipendente da tutto il resto.
+        self.x_chiudi = larghezza - 25
+        self.y_chiudi = 22
+        self.raggio_chiudi = 15
+
+        # Levetta gamma, a sinistra.
         self.x_levetta = 30
         self.y_levetta_top = 80
         self.y_levetta_bottom = altezza - 80
         self.raggio_maniglia = 10
+
+        # Frecce cambio modalità, vicino alla scritta "Modo N" in basso a destra.
+        self.x_modo_centro = larghezza - 90
+        self.y_modo = altezza - 12
+        self.raggio_freccia = 13
+        self.x_freccia_sx = self.x_modo_centro - 45
+        self.x_freccia_dx = self.x_modo_centro + 45
 
     # --- interazione -----------------------------------------------------
     def _dentro_cerchio(self, x, y, cx, cy, raggio):
@@ -172,27 +196,53 @@ class ControlliOverlay:
         frazione = (y_c - self.y_levetta_top) / (self.y_levetta_bottom - self.y_levetta_top)
         self.stato_gamma["gamma"] = round(self.gamma_max - frazione * (self.gamma_max - self.gamma_min), 3)
 
+    def _cambia_modo(self, direzione):
+        if not self.con_modo:
+            return
+        nuovo = self.stato_modo["modalita"] + direzione
+        if nuovo < self.modo_min:
+            nuovo = self.modo_max
+        elif nuovo > self.modo_max:
+            nuovo = self.modo_min
+        self.stato_modo["modalita"] = nuovo
+        print(f"[STATO] Modalità -> {nuovo}")
+
     def on_mouse(self, event, x, y, flags, userdata):
         if event == cv2.EVENT_LBUTTONDOWN:
             print(f"[CLICK] x={x} y={y}")
-            if self._dentro_cerchio(x, y, self.x_icone, self.y_foto, self.raggio_icona):
+
+            if self._dentro_cerchio(x, y, self.x_chiudi, self.y_chiudi, self.raggio_chiudi):
+                self.richiesta_uscita = True
+
+            elif self._dentro_cerchio(x, y, self.x_icone, self.y_foto, self.raggio_icona):
                 self.richiesta_foto = True
+
             elif self._dentro_cerchio(x, y, self.x_icone, self.y_rec, self.raggio_icona):
                 if self.registrazione.attiva:
                     self.registrazione.ferma()
                 else:
                     self.registrazione.avvia()
+
             elif self.registrazione.attiva and self._dentro_cerchio(x, y, self.x_icone, self.y_pausa, self.raggio_icona):
                 if self.registrazione.in_pausa:
                     self.registrazione.riprendi()
                 else:
                     self.registrazione.metti_in_pausa()
+
+            elif self.con_modo and self._dentro_cerchio(x, y, self.x_freccia_sx, self.y_modo, self.raggio_freccia):
+                self._cambia_modo(-1)
+
+            elif self.con_modo and self._dentro_cerchio(x, y, self.x_freccia_dx, self.y_modo, self.raggio_freccia):
+                self._cambia_modo(+1)
+
             elif self.con_gamma and abs(x - self.x_levetta) < 25 and self.y_levetta_top - 15 <= y <= self.y_levetta_bottom + 15:
                 self.trascinamento_levetta = True
                 self._aggiorna_gamma_da_y(y)
+
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.trascinamento_levetta:
                 self._aggiorna_gamma_da_y(y)
+
         elif event == cv2.EVENT_LBUTTONUP:
             self.trascinamento_levetta = False
 
@@ -237,16 +287,22 @@ class ControlliOverlay:
             cv2.circle(frame, (self.x_icone, self.y_pausa), self.raggio_icona, (255, 255, 255), 2)
             if r.in_pausa:
                 pts = np.array([
-                    [self.x_icone - 8, self.y_pausa - 12],
-                    [self.x_icone - 8, self.y_pausa + 12],
-                    [self.x_icone + 12, self.y_pausa],
+                    [self.x_icone - 7, self.y_pausa - 11],
+                    [self.x_icone - 7, self.y_pausa + 11],
+                    [self.x_icone + 11, self.y_pausa],
                 ])
                 cv2.fillPoly(frame, [pts], (255, 255, 255))
             else:
-                cv2.rectangle(frame, (self.x_icone - 10, self.y_pausa - 11),
-                              (self.x_icone - 3, self.y_pausa + 11), (255, 255, 255), -1)
-                cv2.rectangle(frame, (self.x_icone + 3, self.y_pausa - 11),
-                              (self.x_icone + 10, self.y_pausa + 11), (255, 255, 255), -1)
+                cv2.rectangle(frame, (self.x_icone - 9, self.y_pausa - 10),
+                              (self.x_icone - 3, self.y_pausa + 10), (255, 255, 255), -1)
+                cv2.rectangle(frame, (self.x_icone + 3, self.y_pausa - 10),
+                              (self.x_icone + 9, self.y_pausa + 10), (255, 255, 255), -1)
+
+        # X in alto a destra: sempre presente, equivale a ESC
+        cv2.circle(frame, (self.x_chiudi, self.y_chiudi), self.raggio_chiudi, (255, 255, 255), 2)
+        d = 6
+        cv2.line(frame, (self.x_chiudi - d, self.y_chiudi - d), (self.x_chiudi + d, self.y_chiudi + d), (255, 255, 255), 2)
+        cv2.line(frame, (self.x_chiudi - d, self.y_chiudi + d), (self.x_chiudi + d, self.y_chiudi - d), (255, 255, 255), 2)
 
         # Pallino REC lampeggiante / simbolo pausa fisso, alto a sinistra
         if r.attiva:
@@ -267,9 +323,21 @@ class ControlliOverlay:
         cv2.putText(frame, r.nome_da_mostrare(), (10, self.altezza - 12),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (210, 210, 210), 1)
 
+        # Modo + frecce, basso a destra (solo se richiesto)
+        if self.con_modo:
+            testo_modo = f"Modo {self.stato_modo['modalita']}"
+            cv2.putText(frame, testo_modo, (self.x_modo_centro - 32, self.y_modo + 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (210, 210, 210), 1)
+            cv2.arrowedLine(frame, (self.x_freccia_sx + 7, self.y_modo), (self.x_freccia_sx - 7, self.y_modo),
+                             (210, 210, 210), 1, tipLength=0.5)
+            cv2.arrowedLine(frame, (self.x_freccia_dx - 7, self.y_modo), (self.x_freccia_dx + 7, self.y_modo),
+                             (210, 210, 210), 1, tipLength=0.5)
+
         return frame
 
     def chiudi(self):
-        """Da chiamare all'uscita dello script: se una REC era ancora
-        aperta, la chiude per bene invece di lasciare un file corrotto."""
+        """Da chiamare all'uscita dello script (in un blocco finally, per
+        essere sicuri che giri sempre): se una REC era ancora aperta, la
+        chiude e salva per bene, così ESC/X non fanno MAI perdere una clip
+        in corso."""
         self.registrazione.ferma()

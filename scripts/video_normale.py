@@ -47,7 +47,7 @@ def main():
             controlli.gestisci_frame(ultimo_frame)
             cv2.imshow(NOME_FINESTRA, controlli.disegna(ultimo_frame))
 
-            if cv2.waitKey(1) & 0xFF == 27:
+            if cv2.waitKey(1) & 0xFF == 27 or controlli.richiesta_uscita:
                 break
     finally:
         controlli.chiudi()
