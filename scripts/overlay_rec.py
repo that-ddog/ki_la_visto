@@ -207,33 +207,51 @@ class ControlliOverlay:
         self.stato_modo["modalita"] = nuovo
         print(f"[STATO] Modalità -> {nuovo}")
 
+    # --- Azioni pubbliche, richiamabili sia dal touch che dai pulsanti fisici ---
+    def toggle_rec(self):
+        if self.registrazione.attiva:
+            self.registrazione.ferma()
+        else:
+            self.registrazione.avvia()
+
+    def toggle_pausa(self):
+        if not self.registrazione.attiva:
+            return
+        if self.registrazione.in_pausa:
+            self.registrazione.riprendi()
+        else:
+            self.registrazione.metti_in_pausa()
+
+    def scatta_foto(self):
+        self.richiesta_foto = True
+
+    def chiedi_uscita(self):
+        self.richiesta_uscita = True
+
+    def cambia_modo(self, direzione):
+        self._cambia_modo(direzione)
+
     def on_mouse(self, event, x, y, flags, userdata):
         if event == cv2.EVENT_LBUTTONDOWN:
             print(f"[CLICK] x={x} y={y}")
 
             if self._dentro_cerchio(x, y, self.x_chiudi, self.y_chiudi, self.raggio_chiudi):
-                self.richiesta_uscita = True
+                self.chiedi_uscita()
 
             elif self._dentro_cerchio(x, y, self.x_icone, self.y_foto, self.raggio_icona):
-                self.richiesta_foto = True
+                self.scatta_foto()
 
             elif self._dentro_cerchio(x, y, self.x_icone, self.y_rec, self.raggio_icona):
-                if self.registrazione.attiva:
-                    self.registrazione.ferma()
-                else:
-                    self.registrazione.avvia()
+                self.toggle_rec()
 
             elif self.registrazione.attiva and self._dentro_cerchio(x, y, self.x_icone, self.y_pausa, self.raggio_icona):
-                if self.registrazione.in_pausa:
-                    self.registrazione.riprendi()
-                else:
-                    self.registrazione.metti_in_pausa()
+                self.toggle_pausa()
 
             elif self.con_modo and self._dentro_cerchio(x, y, self.x_freccia_sx, self.y_modo, self.raggio_freccia):
-                self._cambia_modo(-1)
+                self.cambia_modo(-1)
 
             elif self.con_modo and self._dentro_cerchio(x, y, self.x_freccia_dx, self.y_modo, self.raggio_freccia):
-                self._cambia_modo(+1)
+                self.cambia_modo(+1)
 
             elif self.con_gamma and abs(x - self.x_levetta) < 25 and self.y_levetta_top - 15 <= y <= self.y_levetta_bottom + 15:
                 self.trascinamento_levetta = True

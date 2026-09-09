@@ -6,6 +6,7 @@ import cv2
 
 from kinect_safe import avvia_cattura, ferma_cattura
 from overlay_rec import ControlliOverlay
+import input_fisico
 
 NOME_FINESTRA = "Normal Camera"
 
@@ -29,6 +30,12 @@ def main():
     processo, coda = avvia_cattura(cattura_un_frame)
     controlli = ControlliOverlay(con_gamma=False)
 
+    try:
+        comandi = input_fisico.inizializza()
+        input_fisico.collega_controlli_camera(comandi, controlli)
+    except Exception as e:
+        print(f"[INPUT] Pulsanti fisici non disponibili: {e}")
+
     print("Premi ESC nella finestra per uscire")
     cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(NOME_FINESTRA, controlli.on_mouse)
@@ -51,6 +58,7 @@ def main():
                 break
     finally:
         controlli.chiudi()
+        input_fisico.termina()
         ferma_cattura(processo)
         cv2.destroyAllWindows()
 

@@ -6,6 +6,7 @@ import cv2
 
 from kinect_safe import avvia_cattura, ferma_cattura
 from overlay_rec import ControlliOverlay
+import input_fisico
 
 NOME_FINESTRA = "Depth Camera 3"
 
@@ -59,6 +60,12 @@ def main():
     controlli = ControlliOverlay(con_gamma=True, stato_gamma=stato,
                                   gamma_min=GAMMA_MIN, gamma_max=GAMMA_MAX)
 
+    try:
+        comandi = input_fisico.inizializza()
+        input_fisico.collega_controlli_camera(comandi, controlli)
+    except Exception as e:
+        print(f"[INPUT] Pulsanti fisici non disponibili: {e}")
+
     print("Premi ESC nella finestra per uscire")
     cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
     cv2.setWindowProperty(NOME_FINESTRA, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -82,6 +89,7 @@ def main():
                 grigio = schermata_attesa
 
             frame_pulito = cv2.cvtColor(grigio, cv2.COLOR_GRAY2BGR)
+            input_fisico.applica_levetta_gamma(controlli)
             controlli.gestisci_frame(frame_pulito)
             cv2.imshow(NOME_FINESTRA, controlli.disegna(frame_pulito))
 
@@ -89,6 +97,7 @@ def main():
                 break
     finally:
         controlli.chiudi()
+        input_fisico.termina()
         ferma_cattura(processo)
         cv2.destroyAllWindows()
 
