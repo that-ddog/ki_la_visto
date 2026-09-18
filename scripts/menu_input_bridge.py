@@ -17,7 +17,7 @@ problema perché ognuno inizializza l'hardware una volta sola nella vita.
 
 Righe stampate su stdout (una per evento, con flush immediato):
     SELEZIONA                     -> il pulsante "giù" è stato premuto
-    DOOM                           -> combo di tutti i pulsanti insieme
+    DOOM                           -> (per ora non emessa: combo troppo scomoda con 7 pulsanti)
     MUOVI su|giu|sinistra|destra   -> la levetta ha superato la soglia in quella direzione
     ERRORE <messaggio>             -> hardware non disponibile
 """
@@ -44,7 +44,10 @@ def main():
 
     comandi.imposta_modalita("menu")
     comandi.registra("menu", "giu", lambda: emetti("SELEZIONA"))
-    comandi.registra_combo_tutti("menu", lambda: emetti("DOOM"))
+    # Combo "tutti insieme" per Doom RIMOSSA: con 7 pulsanti è troppo scomodo
+    # da premere in contemporanea. Il meccanismo resta disponibile in
+    # GestoreComandi (registra_combo_tutti) se in futuro torna utile con
+    # meno pulsanti richiesti o un'altra idea.
 
     ultimo_movimento = 0.0
     try:

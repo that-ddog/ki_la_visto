@@ -36,12 +36,14 @@ comandi.registra("menu", "giu", lambda: print("[MENU] giù nel menu"))
 comandi.registra("menu", "sinistra", lambda: print("[MENU] modalità precedente"))
 comandi.registra("menu", "destra", lambda: print("[MENU] modalità successiva"))
 comandi.registra("menu", "stick", lambda: print("[MENU] conferma selezione"))
+comandi.registra("menu", "lb", lambda: print("[MENU] LB premuto (ancora senza funzione)"))
 
 # In modalità "camera": REC normalmente registra, qui lo usiamo per il demo
 # di cambio modalità. Su/giù immaginiamo controllino la gamma.
 comandi.registra("camera", "su", lambda: print("[CAMERA] gamma +"))
 comandi.registra("camera", "giu", lambda: print("[CAMERA] gamma -"))
 comandi.registra("camera", "stick", lambda: print("[CAMERA] pausa/riprendi"))
+comandi.registra("camera", "lb", lambda: print("[CAMERA] LB premuto (ancora senza funzione)"))
 
 # In modalità "doom": la croce diventa movimento, stick diventa fuoco.
 comandi.registra("doom", "su", lambda: print("[DOOM] avanti"))
@@ -49,6 +51,7 @@ comandi.registra("doom", "giu", lambda: print("[DOOM] indietro"))
 comandi.registra("doom", "sinistra", lambda: print("[DOOM] gira a sinistra"))
 comandi.registra("doom", "destra", lambda: print("[DOOM] gira a destra"))
 comandi.registra("doom", "stick", lambda: print("[DOOM] fuoco!"))
+comandi.registra("doom", "lb", lambda: print("[DOOM] LB premuto (candidato per un'azione in più)"))
 
 # REC cambia sempre modalità in questo test, in TUTTE le modalità.
 for modalita in ORDINE_MODALITA:

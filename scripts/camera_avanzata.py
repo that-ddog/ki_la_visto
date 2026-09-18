@@ -80,11 +80,31 @@ def _applica_filtro(grigio):
     return grigio
 
 
+def _render_modo_5_turbo(depth_mm):
+    return cv2.applyColorMap(_render_modo_3_gamma_chiaro(depth_mm), cv2.COLORMAP_TURBO)
+
+
+def _render_modo_6_hot(depth_mm):
+    return cv2.applyColorMap(_render_modo_3_gamma_chiaro(depth_mm), cv2.COLORMAP_HOT)
+
+
+def _render_modo_7_viridis(depth_mm):
+    return cv2.applyColorMap(_render_modo_3_gamma_chiaro(depth_mm), cv2.COLORMAP_VIRIDIS)
+
+
+def _render_modo_8_inferno(depth_mm):
+    return cv2.applyColorMap(_render_modo_3_gamma_chiaro(depth_mm), cv2.COLORMAP_INFERNO)
+
+
 RENDER = {
     1: _render_modo_1_naive,
     2: _render_modo_2_lineare,
     3: _render_modo_3_gamma_chiaro,
     4: _render_modo_4_gamma_scuro,
+    5: _render_modo_5_turbo,
+    6: _render_modo_6_hot,
+    7: _render_modo_7_viridis,
+    8: _render_modo_8_inferno,
 }
 
 
@@ -100,7 +120,7 @@ def main():
     controlli = ControlliOverlay(
         larghezza=LARGHEZZA, altezza=ALTEZZA,
         con_gamma=True, stato_gamma=stato, gamma_min=GAMMA_MIN, gamma_max=GAMMA_MAX,
-        con_modo=True, stato_modo=stato, modo_min=1, modo_max=4,
+        con_modo=True, stato_modo=stato, modo_min=1, modo_max=8,
     )
 
     try:
@@ -110,7 +130,7 @@ def main():
         print(f"[INPUT] Pulsanti fisici non disponibili: {e}")
 
     print("Premi ESC (o la X a schermo) per uscire.")
-    print("Tasti: 1-4 = modalità, '+'/'-' = gamma (solo modi 3-4). Il resto si clicca a schermo.")
+    print("Tasti: 1-8 = modalità, '+'/'-' = gamma (modi 3-8). Il resto si clicca a schermo.")
 
     cv2.namedWindow(NOME_FINESTRA, cv2.WINDOW_NORMAL)
     cv2.setWindowProperty(NOME_FINESTRA, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -129,11 +149,17 @@ def main():
                 pass
 
             if ultimo_depth_mm is not None:
-                grigio = RENDER[stato["modalita"]](ultimo_depth_mm)
+                risultato = RENDER[stato["modalita"]](ultimo_depth_mm)
             else:
-                grigio = schermata_attesa
+                risultato = schermata_attesa
 
-            frame_pulito = cv2.cvtColor(grigio, cv2.COLOR_GRAY2BGR)
+            # I modi 1-4 ritornano un'immagine in grigio (2D), i modi 5-8
+            # (colormap) ritornano già a colori (3D) — gestiamo entrambi.
+            if risultato.ndim == 2:
+                frame_pulito = cv2.cvtColor(risultato, cv2.COLOR_GRAY2BGR)
+            else:
+                frame_pulito = risultato
+
             input_fisico.applica_levetta_gamma(controlli)
             controlli.gestisci_frame(frame_pulito)
             cv2.imshow(NOME_FINESTRA, controlli.disegna(frame_pulito))
@@ -141,7 +167,7 @@ def main():
             tasto = cv2.waitKey(1) & 0xFF
             if tasto == 27 or controlli.richiesta_uscita:
                 break
-            elif tasto in (ord('1'), ord('2'), ord('3'), ord('4')):
+            elif tasto in tuple(ord(str(n)) for n in range(1, 9)):
                 stato["modalita"] = int(chr(tasto))
                 print(f"[STATO] Modalità -> {stato['modalita']}")
             elif tasto in (ord('+'), ord('=')):

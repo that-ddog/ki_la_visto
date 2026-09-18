@@ -32,6 +32,10 @@ SCRIPT_DEPTH_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio3
 SCRIPT_DEPTH_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/depth_grigio4.py")
 SCRIPT_VIDEO_NORMALE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/video_normale.py")
 SCRIPT_CAMERA_AVANZATA = os.path.expanduser("~/Desktop/ki_la_visto/scripts/camera_avanzata.py")
+SCRIPT_COLOR_CAMERA_1 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera1.py")
+SCRIPT_COLOR_CAMERA_2 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera2.py")
+SCRIPT_COLOR_CAMERA_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera3.py")
+SCRIPT_COLOR_CAMERA_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera4.py")
 SCRIPT_MENU_INPUT_BRIDGE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/menu_input_bridge.py")
 
 # chocolate-doom è un pacchetto di sistema (non vive nel venv): lo cerchiamo
@@ -59,22 +63,23 @@ CONFIG = {
     "colore_testo_vuoto": "#666666",
 
     # Font
-    "font_bottone": ("DejaVu Sans", 15, "bold"),  # ridotto un filo: ora ci sono 4 colonne
+    "font_bottone": ("DejaVu Sans", 13, "bold"),  # ridotto ancora: ora ci sono 3 righe
     "font_barra": ("DejaVu Sans", 14, "bold"),
     "font_titolo": ("DejaVu Sans", 12),
 
     # Dimensioni
     "altezza_barra": 40,
-    "padding_griglia": 10,
+    "padding_griglia": 7,
     "bordo_bottone": 0,   # spessore bordo bottoni (0 = piatto/flat)
 
-    # Testo (8 etichette per la griglia 2x4; "\n" va a capo dentro il pulsante,
+    # Testo (12 etichette per la griglia 3x4; "\n" va a capo dentro il pulsante,
     # utile perché con 4 colonne lo spazio orizzontale è poco. Le ultime due
-    # vuote = caselle disattivate.
+    # vuote = caselle disattivate, pronte per il prossimo giro.
     "titolo_finestra": "KINECT CAMERA",
     "etichette": [
         "DEPTH\nCAMERA 1", "DEPTH\nCAMERA 2", "DEPTH\nCAMERA 3", "DEPTH\nCAMERA 4",
-        "NORMAL\nCAMERA", "ALTRE\nFUNZIONI", "CAMERA\nAVANZATA", "",
+        "NORMAL\nCAMERA", "COLOR\nCAMERA 1", "CAMERA\nAVANZATA", "COLOR\nCAMERA 2",
+        "COLOR\nCAMERA 3", "COLOR\nCAMERA 4", "", "",
     ],
 }
 
@@ -269,8 +274,20 @@ def apri_doom():
     gestore_processi.avvia_doom()
 
 
-def apri_altre_funzioni():
-    print("[AZIONE] Altre funzioni — da collegare")
+def apri_color_camera_1():
+    gestore_processi.avvia_script(SCRIPT_COLOR_CAMERA_1)
+
+
+def apri_color_camera_2():
+    gestore_processi.avvia_script(SCRIPT_COLOR_CAMERA_2)
+
+
+def apri_color_camera_3():
+    gestore_processi.avvia_script(SCRIPT_COLOR_CAMERA_3)
+
+
+def apri_color_camera_4():
+    gestore_processi.avvia_script(SCRIPT_COLOR_CAMERA_4)
 
 
 def chiudi_app(finestra, bridge):
@@ -381,7 +398,7 @@ class AppKinectCamera:
         contenitore.pack(expand=True, fill="both",
                           padx=CONFIG["padding_griglia"], pady=CONFIG["padding_griglia"])
 
-        for i in range(2):
+        for i in range(3):
             contenitore.rowconfigure(i, weight=1)
         for i in range(4):
             contenitore.columnconfigure(i, weight=1)
@@ -393,12 +410,20 @@ class AppKinectCamera:
             apri_depth_camera_3,
             apri_depth_camera_4,
             apri_normal_camera,
-            apri_altre_funzioni,
+            apri_color_camera_1,
             apri_camera_avanzata,
+            apri_color_camera_2,
+            apri_color_camera_3,
+            apri_color_camera_4,
+            None,
             None,
         ]
         etichette = CONFIG["etichette"]
-        posizioni = [(0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (1, 1), (1, 2), (1, 3)]
+        posizioni = [
+            (0, 0), (0, 1), (0, 2), (0, 3),
+            (1, 0), (1, 1), (1, 2), (1, 3),
+            (2, 0), (2, 1), (2, 2), (2, 3),
+        ]
 
         self._azioni = azioni
         self._posizioni = posizioni
@@ -448,7 +473,7 @@ class AppKinectCamera:
         """Sposta il cursore di una casella nella griglia, ignorando il
         movimento se porterebbe fuori dalla griglia o su una casella vuota."""
         r, c = self._cursore_rc
-        nr = max(0, min(1, r + driga))
+        nr = max(0, min(2, r + driga))
         nc = max(0, min(3, c + dcolonna))
         idx = self._posizione_a_indice.get((nr, nc))
         if idx is not None and self._azioni[idx] is not None:

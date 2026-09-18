@@ -22,6 +22,7 @@ Pin usati (BCM):
     RIGHT  -> GPIO19  (pin fisico 35)
     REC    -> GPIO26  (pin fisico 37)
     STICK  -> GPIO21  (pin fisico 40)   # tasto integrato nella levetta
+    LB     -> GPIO16  (pin fisico 36)   # nuovo, ancora senza funzione assegnata
     SDA    -> GPIO2   (pin fisico 3)    # I2C, fisso
     SCL    -> GPIO3   (pin fisico 5)    # I2C, fisso
 """
@@ -34,6 +35,7 @@ PIN_LEFT = 13
 PIN_RIGHT = 19
 PIN_REC = 26
 PIN_STICK = 21
+PIN_LB = 16  # nuovo pulsante "LB", ancora senza funzione assegnata (soprattutto in vista di DOOM)
 
 _BOUNCE = 0.05
 
@@ -74,6 +76,7 @@ def inizializza():
         "destra": Button(PIN_RIGHT, pull_up=True, bounce_time=_BOUNCE),
         "rec": Button(PIN_REC, pull_up=True, bounce_time=_BOUNCE),
         "stick": Button(PIN_STICK, pull_up=True, bounce_time=_BOUNCE),
+        "lb": Button(PIN_LB, pull_up=True, bounce_time=_BOUNCE),
     }
 
     i2c = busio.I2C(board.SCL, board.SDA)
