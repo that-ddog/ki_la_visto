@@ -33,7 +33,8 @@ import numpy as np
 import cv2
 
 LARGHEZZA_DEFAULT, ALTEZZA_DEFAULT = 640, 480
-FPS_VIDEO = 20  # stima; se il playback sembra troppo lento/veloce, aggiusta questo numero
+FPS_VIDEO = 30  # framerate reale del Kinect v1 (depth stream). Con 20 il video
+# risultava 1.5x più lungo del reale (30/20), col timer che correva veloce di conseguenza.
 
 CARTELLA_VIDEO = os.path.expanduser("~/Desktop/ki_la_visto/registrazioni/video")
 CARTELLA_FOTO = os.path.expanduser("~/Desktop/ki_la_visto/registrazioni/foto")
