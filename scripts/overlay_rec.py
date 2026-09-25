@@ -27,6 +27,7 @@ Uso tipico in uno script:
 import os
 import re
 import time
+import subprocess
 from datetime import datetime
 
 import numpy as np
@@ -59,6 +60,25 @@ def _percorso_univoco(cartella, base, estensione):
         candidato = os.path.join(cartella, f"{base}({i}).{estensione}")
         i += 1
     return candidato
+
+
+def leggi_tensione_ingresso():
+    """Legge EXT5V_V (tensione di ingresso 5V, misurata dal PMIC del
+    Raspberry Pi 5) tramite 'vcgencmd pmic_read_adc'. Ritorna il valore in
+    Volt, o None se non disponibile (es. comando assente, non sei su un
+    Pi 5, o timeout)."""
+    try:
+        risultato = subprocess.run(
+            ["vcgencmd", "pmic_read_adc"],
+            capture_output=True, text=True, timeout=1,
+        )
+        for riga in risultato.stdout.splitlines():
+            if "EXT5V_V" in riga:
+                valore = riga.split("=")[1].strip().rstrip("V")
+                return float(valore)
+    except Exception:
+        pass
+    return None
 
 
 class Registrazione:
@@ -150,6 +170,9 @@ class ControlliOverlay:
         self.richiesta_foto = False
         self.richiesta_uscita = False
         self.trascinamento_levetta = False
+
+        self._ultima_lettura_volt = 0.0
+        self._valore_volt = None
 
         self.con_gamma = con_gamma
         self.stato_gamma = stato_gamma  # dict con chiave "gamma", del chiamante
@@ -322,6 +345,21 @@ class ControlliOverlay:
         d = 6
         cv2.line(frame, (self.x_chiudi - d, self.y_chiudi - d), (self.x_chiudi + d, self.y_chiudi + d), (255, 255, 255), 2)
         cv2.line(frame, (self.x_chiudi - d, self.y_chiudi + d), (self.x_chiudi + d, self.y_chiudi - d), (255, 255, 255), 2)
+
+        # Tensione di ingresso (EXT5V_V), subito a sinistra della X.
+        # Letta al massimo una volta al secondo: leggere a ogni frame
+        # sarebbe uno spreco inutile (vcgencmd è un processo esterno).
+        ora = time.time()
+        if ora - self._ultima_lettura_volt >= 1.0:
+            self._valore_volt = leggi_tensione_ingresso()
+            self._ultima_lettura_volt = ora
+        testo_volt = f"{self._valore_volt:.2f}V" if self._valore_volt is not None else "--V"
+        (larghezza_testo, altezza_testo), _ = cv2.getTextSize(
+            testo_volt, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        x_testo = self.x_chiudi - self.raggio_chiudi - 10 - larghezza_testo
+        y_testo = self.y_chiudi + altezza_testo // 2
+        cv2.putText(frame, testo_volt, (x_testo, y_testo),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (210, 210, 210), 1)
 
         # Pallino REC lampeggiante / simbolo pausa fisso, alto a sinistra
         if r.attiva:

@@ -21,6 +21,8 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox
 
+from overlay_rec import leggi_tensione_ingresso
+
 # Percorsi verso l'interprete Python del venv e verso gli script Kinect.
 # Usiamo l'interprete del venv ESPLICITAMENTE (non il "python3" generico),
 # così i pulsanti funzionano sempre, anche se la GUI fosse avviata in un modo
@@ -320,6 +322,7 @@ class AppKinectCamera:
         self._crea_griglia_bottoni()
 
         self._avvia_bridge_input()
+        self._aggiorna_tensione_gui()
 
     # --- Input fisico (via processo bridge, vedi BridgeInputMenu) -------
 
@@ -346,6 +349,15 @@ class AppKinectCamera:
                 self._sposta_cursore(*spostamenti[direzione])
         elif riga.startswith("ERRORE"):
             print(f"[BRIDGE] {riga}")
+
+    def _aggiorna_tensione_gui(self):
+        """Aggiorna l'etichetta della tensione una volta al secondo,
+        richiamandosi da sola tramite root.after (nessun thread separato:
+        gira già sul thread di Tkinter)."""
+        valore = leggi_tensione_ingresso()
+        testo = f"{valore:.2f}V" if valore is not None else "--V"
+        self.label_volt.config(text=testo)
+        self.root.after(1000, self._aggiorna_tensione_gui)
 
     # --- Barra superiore custom -------------------------------------
     def _crea_barra_superiore(self):
@@ -391,6 +403,19 @@ class AppKinectCamera:
         btn_chiudi.bind("<Button-1>", lambda e: chiudi_app(self.root, self.bridge))
         btn_chiudi.bind("<Enter>", lambda e: btn_chiudi.config(bg=CONFIG["colore_chiudi_hover"]))
         btn_chiudi.bind("<Leave>", lambda e: btn_chiudi.config(bg=CONFIG["colore_barra"]))
+
+        # Tensione di ingresso (EXT5V_V), subito a sinistra della X.
+        # Va impacchettata DOPO btn_chiudi (side="right") perché in Tkinter
+        # ogni nuovo widget con side="right" si aggiunge più verso l'interno
+        # rispetto ai precedenti: così finisce esattamente alla sua sinistra.
+        self.label_volt = tk.Label(
+            barra,
+            text="--V",
+            bg=CONFIG["colore_barra"],
+            fg=CONFIG["colore_testo_barra"],
+            font=CONFIG["font_barra"],
+        )
+        self.label_volt.pack(side="right", padx=(0, 6))
 
     # --- Griglia 2x4 di bottoni principali ---------------------------
     def _crea_griglia_bottoni(self):
