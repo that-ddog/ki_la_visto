@@ -22,7 +22,7 @@ Pin usati (BCM):
     RIGHT  -> GPIO19  (pin fisico 35)
     REC    -> GPIO26  (pin fisico 37)
     STICK  -> GPIO21  (pin fisico 40)   # tasto integrato nella levetta
-    LB     -> GPIO4   (pin fisico 7)    # nuovo, ancora senza funzione assegnata
+    LB     -> GPIO4   (pin fisico 7)    # usato in Doom (corsa)
     SDA    -> GPIO2   (pin fisico 3)    # I2C, fisso
     SCL    -> GPIO3   (pin fisico 5)    # I2C, fisso
 """
@@ -35,7 +35,7 @@ PIN_LEFT = 13
 PIN_RIGHT = 19
 PIN_REC = 26
 PIN_STICK = 21
-PIN_LB = 4  # nuovo pulsante "LB", ancora senza funzione assegnata (soprattutto in vista di DOOM)
+PIN_LB = 4  # pulsante "LB": per ora usato solo in modalità Doom (corsa)
 
 _BOUNCE = 0.05
 
@@ -152,16 +152,25 @@ class GestoreComandi:
     le proprie funzioni; il dispatcher guarda solo qual è la modalità
     attiva e chiama la funzione giusta. Riconosce anche la combinazione
     "tutti i pulsanti insieme" per un'azione speciale (l'easter egg Doom).
+
+    Ogni modalità ha DUE profili separati:
+      - profili[modalita]          -> cosa fare quando un pulsante viene PREMUTO
+      - profili_rilascio[modalita] -> cosa fare quando viene RILASCIATO
+    Menu e camera usano solo la pressione (un click = un'azione). Doom usa
+    anche il rilascio, perché lì i pulsanti sono tasti "tenuti giù" (corri
+    finché tieni LB, spari finché tieni il rosso...).
     """
 
     def __init__(self, pulsanti):
         self.pulsanti = pulsanti
         self.modalita_corrente = "menu"
         self.profili = {"menu": {}, "camera": {}, "doom": {}}
+        self.profili_rilascio = {"menu": {}, "camera": {}, "doom": {}}
         self.combo_tutti = {}  # una funzione per modalità, opzionale
 
         for nome, pulsante in pulsanti.items():
             pulsante.when_pressed = self._crea_gestore(nome)
+            pulsante.when_released = self._crea_gestore_rilascio(nome)
 
     def _tutti_premuti(self):
         return all(p.is_pressed for p in self.pulsanti.values())
@@ -179,8 +188,19 @@ class GestoreComandi:
                 azione()
         return gestore
 
+    def _crea_gestore_rilascio(self, nome_pulsante):
+        def gestore():
+            profilo = self.profili_rilascio.get(self.modalita_corrente, {})
+            azione = profilo.get(nome_pulsante)
+            if azione:
+                azione()
+        return gestore
+
     def registra(self, modalita, nome_pulsante, funzione):
         self.profili.setdefault(modalita, {})[nome_pulsante] = funzione
+
+    def registra_rilascio(self, modalita, nome_pulsante, funzione):
+        self.profili_rilascio.setdefault(modalita, {})[nome_pulsante] = funzione
 
     def registra_combo_tutti(self, modalita, funzione):
         self.combo_tutti[modalita] = funzione
@@ -204,6 +224,24 @@ def collega_controlli_camera(comandi, controlli):
     comandi.registra("camera", "su", controlli.chiedi_uscita)
     comandi.registra("camera", "sinistra", lambda: controlli.cambia_modo(-1))
     comandi.registra("camera", "destra", lambda: controlli.cambia_modo(+1))
+
+
+NOMI_PULSANTI = ("su", "giu", "sinistra", "destra", "rec", "stick", "lb")
+
+
+def collega_controlli_doom(comandi, controlli_doom):
+    """
+    Collegamento standard per la modalità DOOM (vedi controlli_doom.py, dove
+    sta la tabella vera "pulsante -> tasto di Doom"). Qui registriamo solo
+    che, in modalità "doom", ogni pressione e ogni rilascio vanno passati a
+    controlli_doom. Menu e camera non vengono toccati: hanno i loro profili.
+    """
+    comandi.imposta_modalita("doom")
+    for nome in NOMI_PULSANTI:
+        comandi.registra("doom", nome,
+                         lambda n=nome: controlli_doom.pulsante_premuto(n))
+        comandi.registra_rilascio("doom", nome,
+                                  lambda n=nome: controlli_doom.pulsante_rilasciato(n))
 
 
 def applica_levetta_gamma(controlli, velocita=0.03):

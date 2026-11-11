@@ -39,6 +39,9 @@ SCRIPT_COLOR_CAMERA_2 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_
 SCRIPT_COLOR_CAMERA_3 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera3.py")
 SCRIPT_COLOR_CAMERA_4 = os.path.expanduser("~/Desktop/ki_la_visto/scripts/color_camera4.py")
 SCRIPT_MENU_INPUT_BRIDGE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/menu_input_bridge.py")
+# Ponte Doom: tiene i GPIO mentre Doom è aperto e traduce i pulsanti in tasti
+# (vedi doom_ponte.py / controlli_doom.py). È lui ad avviare chocolate-doom.
+SCRIPT_DOOM_PONTE = os.path.expanduser("~/Desktop/ki_la_visto/scripts/doom_ponte.py")
 
 # chocolate-doom è un pacchetto di sistema (non vive nel venv): lo cerchiamo
 # nel PATH, con un percorso di riserva nel caso non venisse trovato lì.
@@ -143,7 +146,12 @@ class GestoreProcessi:
                 "Verifica che sia installato (sudo apt install chocolate-doom).",
             )
             return
-        self.avvia_processo([COMANDO_DOOM])
+        if os.path.isfile(VENV_PYTHON) and os.path.isfile(SCRIPT_DOOM_PONTE):
+            # Normale: passiamo dal ponte, che avvia Doom con i comandi fisici.
+            self.avvia_processo([VENV_PYTHON, SCRIPT_DOOM_PONTE])
+        else:
+            print("[AZIONE] doom_ponte.py non trovato: avvio Doom senza comandi fisici")
+            self.avvia_processo([COMANDO_DOOM])
 
     def avvia_processo(self, comando):
         """comando: lista tipo ['chocolate-doom'] oppure [VENV_PYTHON, percorso_script]."""
