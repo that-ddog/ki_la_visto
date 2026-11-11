@@ -21,7 +21,7 @@ stato = {
     "gamma": 0.45,
     "distanza_min_mm": 400,
     "distanza_max_mm": 6000,
-    "filtro_rumore": 5,
+    "filtro_rumore": 0,  # filtro mediano SPENTO (come sulla Camera 2); 3 o 5 per riaccenderlo
 }
 
 GAMMA_MIN = 0.2

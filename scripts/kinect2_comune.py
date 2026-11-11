@@ -69,15 +69,28 @@ def _log(testo):
 
 
 # --- Conversioni -----------------------------------------------------------
-def colore_in_bgr(bgrx):
+def colore_in_bgr(bgrx, larghezza=LARGHEZZA_COLORE_MOSTRATO):
+    """Colore 1920x1080 (BGRX) -> BGR largo 'larghezza', proporzioni 16:9."""
     bgr = bgrx[:, :, :3]
-    h = int(round(LARGHEZZA_COLORE_MOSTRATO * bgr.shape[0] / bgr.shape[1]))
-    return cv2.resize(bgr, (LARGHEZZA_COLORE_MOSTRATO, h), interpolation=cv2.INTER_LINEAR)
+    h = int(round(larghezza * bgr.shape[0] / bgr.shape[1]))
+    return cv2.resize(bgr, (larghezza, h), interpolation=cv2.INTER_AREA)
 
 
 def ir_in_grigio(ir):
     norm = np.clip(ir / IR_BIANCO, 0.0, 1.0)
     return (np.sqrt(norm) * 255).astype(np.uint8)
+
+
+# Infrarossi con "gamma" regolabile: qui la gamma fa da luminosità.
+# Gamma più alta = più chiaro (stessa direzione della profondità: levetta su
+# = schiarisce). Con IR_GAMMA_INIZIALE = 2.0 l'immagine è identica a
+# ir_in_grigio (radice quadrata), cioè quella che vedevi finora.
+IR_GAMMA_INIZIALE = 2.0
+
+
+def ir_gamma(ir, gamma):
+    norm = np.clip(ir / IR_BIANCO, 0.0, 1.0)
+    return (np.power(norm, 1.0 / gamma) * 255).astype(np.uint8)
 
 
 def profondita_in_grigio(depth):
@@ -281,6 +294,12 @@ def _su_sigterm(signum, frame):
     raise SystemExit(0)
 
 
+def _alla_misura_overlay(img, overlay):
+    if img.shape[1] != overlay.larghezza or img.shape[0] != overlay.altezza:
+        img = cv2.resize(img, (overlay.larghezza, overlay.altezza), interpolation=cv2.INTER_AREA)
+    return img
+
+
 # --- Ciclo principale ----------------------------------------------------
 def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
     """
@@ -314,6 +333,10 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         if overlay is not None:
+            # L'overlay è disegnato per una misura precisa (es. 640x360 per la
+            # camera normale): le schermate di attesa le adattiamo a quella,
+            # così icone e tocchi restano sempre al loro posto.
+            img = _alla_misura_overlay(img, overlay)
             cv2.imshow(nome_finestra, overlay.disegna(img))
         else:
             img = disegna_x(img)
@@ -430,6 +453,7 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
                 # ci disegniamo sopra l'overlay per lo schermo.
                 if img.ndim == 2:
                     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                img = _alla_misura_overlay(img, overlay)  # il video vuole sempre la stessa misura
                 if hardware:
                     import input_fisico
                     input_fisico.applica_levetta_gamma(overlay)

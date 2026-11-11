@@ -14,7 +14,9 @@ NOME_FINESTRA = "Color Camera 1"
 DISTANZA_MIN_MM = 400
 DISTANZA_MAX_MM = 6000
 
-DIMENSIONE_FILTRO_RUMORE = 5
+# Filtro mediano anti-rumore: SPENTO (come sulla Kinect Camera 2).
+# Metti 3 o 5 per riaccenderlo (0 o 1 = spento).
+DIMENSIONE_FILTRO_RUMORE = 0
 
 # Stessa curva gamma di depth_grigio3/4: la levetta la regola live.
 stato = {"gamma": 0.45}

@@ -14,7 +14,9 @@ NOME_FINESTRA = "Depth Camera 3"
 DISTANZA_MIN_MM = 400
 DISTANZA_MAX_MM = 6000
 
-DIMENSIONE_FILTRO_RUMORE = 5
+# Filtro mediano anti-rumore: SPENTO (come sulla Kinect Camera 2).
+# Metti 3 o 5 per riaccenderlo (0 o 1 = spento).
+DIMENSIONE_FILTRO_RUMORE = 0
 
 # La gamma ora vive in un dizionario (non più una costante fissa): è quello
 # che la levetta a schermo modifica live mentre lo script gira. Il valore

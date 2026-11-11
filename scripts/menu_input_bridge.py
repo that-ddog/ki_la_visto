@@ -22,6 +22,9 @@ Righe stampate su stdout (una per evento, con flush immediato):
     ERRORE <messaggio>             -> hardware non disponibile
 """
 
+import ctypes
+import os
+import signal
 import time
 
 import input_fisico
@@ -31,11 +34,43 @@ COOLDOWN_MOVIMENTO_S = 0.35
 INTERVALLO_CICLO_S = 0.05
 
 
+# Se la GUI che ci ha lanciato muore (chiusura forzata, xkill...), questo
+# processo NON deve restare vivo da solo: terrebbe occupati i GPIO per
+# sempre ("GPIO busy") e i pulsanti non andrebbero più in nessuna app.
+# Tre protezioni, dalla più immediata alla più "a prova di bomba":
+#   1. il kernel ci manda SIGTERM appena muore il processo genitore
+#   2. se la GUI non legge più (pipe rotta), usciamo
+#   3. a ogni giro controlliamo che il genitore sia ancora lo stesso
+_GENITORE = os.getppid()
+_stato = {"esci": False}
+
+
+def _su_sigterm(signum, frame):
+    raise SystemExit(0)
+
+
+def _muori_col_genitore():
+    try:
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        pass  # la protezione 3 copre comunque
+
+
 def emetti(testo):
-    print(testo, flush=True)
+    try:
+        print(testo, flush=True)
+    except (BrokenPipeError, OSError):
+        # La GUI non c'è più: chiudiamo (anche se siamo nel thread di gpiozero).
+        _stato["esci"] = True
 
 
 def main():
+    signal.signal(signal.SIGTERM, _su_sigterm)
+    _muori_col_genitore()
+    if os.getppid() != _GENITORE:
+        return  # la GUI è morta prima ancora che partissimo
+
     try:
         comandi = input_fisico.inizializza()
     except Exception as e:
@@ -51,7 +86,9 @@ def main():
 
     ultimo_movimento = 0.0
     try:
-        while True:
+        while not _stato["esci"]:
+            if os.getppid() != _GENITORE:
+                break  # GUI morta: liberiamo i GPIO
             x, y = input_fisico.leggi_levetta()
             ora = time.time()
             if ora - ultimo_movimento > COOLDOWN_MOVIMENTO_S:
@@ -68,7 +105,7 @@ def main():
                     emetti(f"MUOVI {direzione}")
                     ultimo_movimento = ora
             time.sleep(INTERVALLO_CICLO_S)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         input_fisico.termina()

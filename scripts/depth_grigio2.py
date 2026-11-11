@@ -14,7 +14,9 @@ NOME_FINESTRA = "Depth Camera 2"
 DISTANZA_MIN_MM = 400
 DISTANZA_MAX_MM = 6000
 
-DIMENSIONE_FILTRO_RUMORE = 5
+# Filtro mediano anti-rumore: SPENTO (come sulla Kinect Camera 2).
+# Metti 3 o 5 per riaccenderlo (0 o 1 = spento).
+DIMENSIONE_FILTRO_RUMORE = 0
 
 
 def depth_in_grigio(depth_mm):

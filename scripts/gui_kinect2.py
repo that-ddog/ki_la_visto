@@ -6,7 +6,7 @@ GUI principale della "Kinect Camera 2" (Kinect v2). Stesso stile della GUI
 della Kinect Camera 1: finestra a schermo intero senza bordi, barra in alto
 con titolo, tensione e X per chiudere, e una griglia 2x2 con le 4 camere:
 
-    COLORE        | INFRAROSSI
+    CAMERA NORMALE | INFRAROSSI
     PROFONDITA'   | PROFONDITA' TURBO
 
 Ogni pulsante lancia uno script separato (kinect2_*.py). Mentre la camera
@@ -48,8 +48,8 @@ SCRIPT_DOOM_PONTE = os.path.join(CARTELLA_SCRIPT, "doom_ponte.py")
 COMANDO_DOOM = shutil.which("chocolate-doom") or "/usr/games/chocolate-doom"
 
 CAMERE = [
-    ("COLORE", "kinect2_colore.py"),
-    ("INFRAROSSI", "kinect2_infrarossi.py"),
+    ("CAMERA\nNORMALE", "kinect2_camera_normale.py"),  # con REC (la vecchia kinect2_colore.py resta in cartella)
+    ("INFRAROSSI", "kinect2_infrarossi2.py"),            # con REC (la vecchia resta in cartella)
     ("PROFONDITA'", "kinect2_profondita2.py"),          # con gamma + REC (la vecchia resta in cartella)
     ("PROFONDITA'\nTURBO", "kinect2_profondita_turbo2.py"),  # con gamma + REC (la vecchia resta in cartella)
 ]
