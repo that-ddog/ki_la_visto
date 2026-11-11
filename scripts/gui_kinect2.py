@@ -50,8 +50,8 @@ COMANDO_DOOM = shutil.which("chocolate-doom") or "/usr/games/chocolate-doom"
 CAMERE = [
     ("COLORE", "kinect2_colore.py"),
     ("INFRAROSSI", "kinect2_infrarossi.py"),
-    ("PROFONDITA'", "kinect2_profondita.py"),
-    ("PROFONDITA'\nTURBO", "kinect2_profondita_turbo.py"),
+    ("PROFONDITA'", "kinect2_profondita2.py"),          # con gamma + REC (la vecchia resta in cartella)
+    ("PROFONDITA'\nTURBO", "kinect2_profondita_turbo2.py"),  # con gamma + REC (la vecchia resta in cartella)
 ]
 RIGHE, COLONNE = 2, 2
 
