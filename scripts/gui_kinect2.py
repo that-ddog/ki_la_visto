@@ -11,6 +11,8 @@ con titolo, tensione e X per chiudere, e una griglia 2x2 con le 4 camere:
 
 Ogni pulsante lancia uno script separato (kinect2_*.py). Mentre la camera
 è aperta la GUI si nasconde, e torna da sola quando la camera si chiude.
+La "D" rossa in alto a sinistra avvia DOOM (via doom_ponte.py, con i
+comandi fisici), esattamente come nella Kinect Camera 1.
 
 Comandi: tocco/mouse sui pulsanti, oppure (se ci sono) levetta per
 muoversi + pulsante VERDE (giù) per aprire. Nelle camere: X a tocco,
@@ -22,6 +24,7 @@ una camera (che prende lei i GPIO) e rilanciato fresco al ritorno.
 """
 
 import os
+import shutil
 import subprocess
 import threading
 import traceback
@@ -38,6 +41,11 @@ CARTELLA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
 SCRIPT_MENU_INPUT_BRIDGE = os.path.join(CARTELLA_SCRIPT, "menu_input_bridge.py")
 FILE_LOG = os.path.join(CARTELLA_SCRIPT, "kinect2_log.txt")
+
+# DOOM: stesso meccanismo della Kinect Camera 1 (doom_ponte.py avvia
+# chocolate-doom e traduce i pulsanti fisici in tasti).
+SCRIPT_DOOM_PONTE = os.path.join(CARTELLA_SCRIPT, "doom_ponte.py")
+COMANDO_DOOM = shutil.which("chocolate-doom") or "/usr/games/chocolate-doom"
 
 CAMERE = [
     ("COLORE", "kinect2_colore.py"),
@@ -60,6 +68,7 @@ CONFIG = {
     "colore_chiudi_hover": "#c0392b",
     "colore_cursore_menu": "#4fc3f7",
     "colore_accento": "#4fc3f7",   # il "2" del titolo
+    "colore_doom": "#ff3b30",      # la "D" di DOOM, rosso acceso come nella Camera 1
 
     "font_bottone": ("DejaVu Sans", 18, "bold"),
     "font_barra": ("DejaVu Sans", 14, "bold"),
@@ -85,16 +94,34 @@ class GestoreProcessi:
         if not os.path.isfile(VENV_PYTHON) or not os.path.isfile(percorso):
             messagebox.showerror("Errore avvio", f"Non trovo:\n{VENV_PYTHON}\no\n{percorso}")
             return
+        self.avvia_processo([VENV_PYTHON, "-u", percorso])
+
+    def avvia_doom(self):
+        if not os.path.isfile(COMANDO_DOOM):
+            messagebox.showerror(
+                "Errore avvio DOOM",
+                f"Non trovo chocolate-doom qui:\n{COMANDO_DOOM}\n"
+                "(sudo apt install chocolate-doom)")
+            return
+        if os.path.isfile(VENV_PYTHON) and os.path.isfile(SCRIPT_DOOM_PONTE):
+            # Come nella Kinect Camera 1: il ponte prende i pulsanti fisici,
+            # li trasforma in tasti di Doom e avvia chocolate-doom.
+            self.avvia_processo([VENV_PYTHON, "-u", SCRIPT_DOOM_PONTE])
+        else:
+            print("[KINECT2-GUI] doom_ponte.py non trovato: Doom senza comandi fisici")
+            self.avvia_processo([COMANDO_DOOM])
+
+    def avvia_processo(self, comando):
         if self._processo is not None and self._processo.poll() is None:
             return
-        print(f"[KINECT2-GUI] Avvio {nome_script}")
+        print(f"[KINECT2-GUI] Avvio {' '.join(comando)}")
         self._prima()
         try:
-            # Tutto quello che la camera scrive finisce in kinect2_log.txt
-            # (sovrascritto a ogni avvio): aperta dall'icona non c'è un
+            # Tutto quello che il processo scrive finisce in kinect2_log.txt
+            # (sovrascritto a ogni avvio): aperto dall'icona non c'è un
             # terminale, e senza log non si capirebbe cosa è andato storto.
             log = open(FILE_LOG, "w")
-            self._processo = subprocess.Popen([VENV_PYTHON, "-u", percorso], cwd=CARTELLA_SCRIPT,
+            self._processo = subprocess.Popen(comando, cwd=CARTELLA_SCRIPT,
                                               stdout=log, stderr=subprocess.STDOUT)
             log.close()  # il processo figlio ha la sua copia
         except Exception as e:
@@ -197,6 +224,14 @@ class AppKinectCamera2:
         barra = tk.Frame(self.root, bg=CONFIG["colore_barra"], height=CONFIG["altezza_barra"])
         barra.pack(side="top", fill="x")
         barra.pack_propagate(False)
+
+        # "D" rossa in alto a sinistra = DOOM, come nella Kinect Camera 1.
+        doom = tk.Label(barra, text=" D ", bg=CONFIG["colore_barra"], fg=CONFIG["colore_doom"],
+                        font=CONFIG["font_barra"], cursor="hand2")
+        doom.pack(side="left", padx=(10, 0))
+        doom.bind("<Button-1>", lambda e: self.processi.avvia_doom())
+        doom.bind("<Enter>", lambda e: doom.config(bg=CONFIG["colore_bottone_hover"]))
+        doom.bind("<Leave>", lambda e: doom.config(bg=CONFIG["colore_barra"]))
 
         tk.Label(barra, text="KINECT CAMERA", bg=CONFIG["colore_barra"],
                  fg=CONFIG["colore_testo_barra"], font=CONFIG["font_titolo"]).pack(side="left", padx=(12, 4))
