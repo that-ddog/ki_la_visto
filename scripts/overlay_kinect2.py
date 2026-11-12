@@ -87,10 +87,19 @@ def _log_audio(testo):
 
 class MicrofonoKinect:
     """Ascolta di continuo il microfono del Kinect (arecord in un processo,
-    letto da un thread). Scrive nel WAV solo quando 'registra' è attivo."""
+    letto da un thread). Scrive nel WAV solo quando 'registra' è attivo.
+
+    Si RICONNETTE DA SOLO: quando una camera apre il Kinect, libfreenect2
+    fa un reset USB dell'intero dispositivo, e questo stacca anche la parte
+    audio (il microfono "muore"). Qui arecord viene semplicemente rilanciato
+    finché i dati tornano. Una sorveglianza lo rilancia anche se resta
+    appeso senza dare dati, o se dà solo zeri (un microfono vero non è mai
+    perfettamente zero). Se il microfono cade durante una registrazione, il
+    buco viene riempito di silenzio: l'audio resta allineato al video."""
 
     def __init__(self):
-        self.disponibile = False
+        self.disponibile = False   # True mentre arrivano dati veri
+        self.utilizzabile = shutil.which(COMANDO_MICROFONO[0]) is not None
         self.livello = 0.0          # 0..1, ultimo pezzetto letto
         self._picco = 0.0           # picco dall'ultima volta che qualcuno l'ha chiesto
         self._wav = None
@@ -98,38 +107,106 @@ class MicrofonoKinect:
         self._chiusura = False
         self._lucchetto = threading.Lock()
         self._proc = None
-        if not shutil.which(COMANDO_MICROFONO[0]):
+        self._t_avvio_proc = 0.0
+        self._t_ultimi_dati = 0.0
+        self._t_ultimo_non_zero = 0.0
+        self._t_fine_wav = None     # ora dell'ultimo pezzetto scritto nel WAV
+        self._ripartito = False     # il prossimo pezzetto arriva dopo una riconnessione
+        if not self.utilizzabile:
             _log_audio(f"{COMANDO_MICROFONO[0]} non trovato: video senza audio")
             return
-        try:
-            self._proc = subprocess.Popen(COMANDO_MICROFONO, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
-        except Exception as ex:
-            _log_audio(f"Microfono non avviato ({ex}): video senza audio")
-            return
-        self.disponibile = True
-        threading.Thread(target=self._leggi, daemon=True).start()
+        threading.Thread(target=self._ciclo, daemon=True).start()
+        threading.Thread(target=self._sorveglia, daemon=True).start()
 
-    def _leggi(self):
+    def _ciclo(self):
+        """Lancia arecord e lo rilancia ogni volta che si interrompe."""
+        primo_giro = True
+        self._segnalato = False
+        while not self._chiusura:
+            try:
+                proc = subprocess.Popen(COMANDO_MICROFONO, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
+            except Exception as ex:
+                if not self._segnalato:
+                    _log_audio(f"Microfono non avviato ({ex}): riprovo...")
+                    self._segnalato = True
+                time.sleep(1.0)
+                continue
+            ora = time.time()
+            self._t_avvio_proc = self._t_ultimo_non_zero = ora
+            self._proc = proc
+            self._ripartito = not primo_giro
+            primo_giro = False
+            self._leggi(proc)
+            self.disponibile = False
+            if self._chiusura:
+                break
+            try:
+                proc.kill()
+                errore = proc.stderr.read().decode(errors="replace").strip()
+            except Exception:
+                errore = ""
+            if not self._segnalato:  # un solo messaggio per ogni interruzione
+                _log_audio(f"Microfono interrotto ({errore or 'nessun dato'}): mi riconnetto...")
+                self._segnalato = True
+            time.sleep(0.5)
+
+    def _leggi(self, proc):
         blocco = int(FREQ_AUDIO * BLOCCO_AUDIO_S) * CANALI_AUDIO * BYTE_CAMPIONE
+        annunciato = False
         while True:
-            dati = self._proc.stdout.read(blocco)
+            dati = proc.stdout.read(blocco)
             if not dati:
                 break
+            ora = time.time()
             n = len(dati) // (4 * CANALI_AUDIO) * CANALI_AUDIO
-            campioni = np.frombuffer(dati[: n * 4], "<i4")
-            if campioni.size:
-                # "somma" dei 4 microfoni (la media), e il suo picco
-                somma = campioni.reshape(-1, CANALI_AUDIO).astype(np.float32).mean(axis=1)
-                self.livello = float(np.abs(somma).max()) / 2 ** 31
-                self._picco = max(self._picco, self.livello)
+            dati = dati[: n * 4]
+            campioni = np.frombuffer(dati, "<i4")
+            if not campioni.size:
+                continue
+            self._t_ultimi_dati = ora
+            if np.any(campioni):
+                self._t_ultimo_non_zero = ora
+            self.disponibile = (ora - self._t_ultimo_non_zero) < 2.0
+            if self.disponibile and not annunciato:
+                _log_audio("Microfono attivo")
+                annunciato = True
+                self._segnalato = False
+            # "somma" dei 4 microfoni (la media), e il suo picco
+            somma = campioni.reshape(-1, CANALI_AUDIO).astype(np.float32).mean(axis=1)
+            self.livello = float(np.abs(somma).max()) / 2 ** 31
+            self._picco = max(self._picco, self.livello)
             with self._lucchetto:
                 if self._wav is not None and self._scrivi:
+                    durata = n / CANALI_AUDIO / FREQ_AUDIO
+                    if self._ripartito and self._t_fine_wav is not None:
+                        # microfono ripartito durante la registrazione:
+                        # silenzio al posto del pezzo perso, così resta in sincro
+                        buco = min(10.0, ora - durata - self._t_fine_wav)
+                        if buco > 0.02:
+                            frame_buco = int(buco * FREQ_AUDIO)
+                            self._wav.writeframes(bytes(frame_buco * CANALI_AUDIO * BYTE_CAMPIONE))
+                            _log_audio(f"Riempito un buco di {buco:.2f}s di silenzio")
                     self._wav.writeframes(dati)
-        self.disponibile = False
-        if not self._chiusura:
-            errore = self._proc.stderr.read().decode(errors="replace").strip()
-            _log_audio(f"Microfono non disponibile: {errore or 'interrotto'}")
+                    self._t_fine_wav = ora
+                self._ripartito = False
+
+    def _sorveglia(self):
+        """Se arecord resta vivo ma non dà dati (o solo zeri), lo chiudiamo:
+        il ciclo principale lo rilancerà."""
+        while not self._chiusura:
+            time.sleep(0.5)
+            proc = self._proc
+            if proc is None or proc.poll() is not None:
+                continue
+            ora = time.time()
+            senza_dati = ora - max(self._t_ultimi_dati, self._t_avvio_proc)
+            solo_zeri = ora - self._t_ultimo_non_zero
+            if senza_dati > 2.0 or solo_zeri > 3.0:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
 
     def prendi_picco(self):
         """Il picco dall'ultima chiamata (così i suoni brevi fra un disegno e
@@ -145,9 +222,12 @@ class MicrofonoKinect:
             w.setframerate(FREQ_AUDIO)
             self._wav = w
             self._scrivi = True
+            self._t_fine_wav = None
 
     def pausa(self, in_pausa):
-        self._scrivi = not in_pausa
+        with self._lucchetto:
+            self._scrivi = not in_pausa
+            self._t_fine_wav = None  # il tempo in pausa non va riempito
 
     def finisci(self):
         with self._lucchetto:
@@ -209,6 +289,19 @@ def _unisci_audio_video(muto, wav, finale):
     """Unisce video muto + WAV in 'finale', in sottofondo (processo staccato:
     finisce anche se la camera viene chiusa subito dopo). Se qualcosa va
     storto, il video muto diventa comunque il file finale e il WAV resta."""
+    try:
+        with wave.open(wav) as w:
+            vuoto = w.getnframes() == 0
+    except Exception:
+        vuoto = True
+    if vuoto:
+        os.replace(muto, finale)
+        try:
+            os.remove(wav)
+        except OSError:
+            pass
+        _log_audio("Nessun audio arrivato dal microfono: video salvato senza audio")
+        return
     if not shutil.which("ffmpeg"):
         os.replace(muto, finale)
         _log_audio("ffmpeg non trovato: video salvato senza audio, l'audio è nel .wav "
@@ -249,7 +342,7 @@ class RegistrazioneV2(Registrazione):
         base = self.nome_prossima_clip()
         self._percorso_finale = _percorso_univoco(CARTELLA_VIDEO_V2, base, "mp4")
         self._percorso_wav = None
-        if self.microfono is not None and self.microfono.disponibile:
+        if self.microfono is not None and self.microfono.utilizzabile:
             # video e audio in due file separati, uniti allo stop
             radice = self._percorso_finale[:-4]
             self.percorso_clip = radice + "_muto.mp4"
