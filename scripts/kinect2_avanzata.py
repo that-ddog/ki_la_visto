@@ -12,10 +12,10 @@ Per aggiungere una modalità: scrivi una funzione render_xxx(depth) qui sotto
 e aggiungila al dizionario MODALITA (le frecce e i tasti si adattano da soli).
 
 Comandi (overlay del v1, con in più le frecce delle modalità in basso a destra):
-  a tocco      -> foto / REC / pausa a destra, levetta gamma a sinistra,
+  a tocco      -> foto / REC / pausa a destra, levetta gamma in alto (orizzontale),
                   frecce < > in basso a destra per la modalità, X per uscire
   pulsanti     -> rosso REC/stop, verde pausa, levetta premuta foto,
-                  giallo esci, levetta su/giu gamma,
+                  giallo esci, levetta destra/sinistra gamma,
                   BIANCO / NERO = modalità precedente / successiva
   tastiera     -> 1 / 2 modalità, + / - gamma, Esc esci
 Salva in ~/Desktop/ki_la_visto/registrazioni/Kinect v2/ (video e foto).

@@ -3,14 +3,14 @@
 Kinect Camera 2 - INFRAROSSI 2: la camera infrarossa del Kinect v2 (vede
 anche al buio) + overlay completo: REC, pausa, foto, levetta, X.
 
-Qui la levetta "gamma" fa da luminosità: su = più chiaro, giù = più scuro.
+Qui la levetta "gamma" fa da luminosità: a destra più chiaro, a sinistra più scuro.
 Parte esattamente come l'infrarossi di prima (kinect2_infrarossi.py).
 
 Comandi:
-  a tocco      -> icone a destra (foto / REC / pausa), levetta a sinistra
+  a tocco      -> icone a destra (foto / REC / pausa), levetta in alto (orizzontale)
                   da trascinare, X in alto a destra
   pulsanti     -> rosso REC/stop, verde pausa, levetta premuta foto,
-                  giallo esci, levetta su/giu luminosità (come nel v1)
+                  giallo esci, levetta destra/sinistra luminosità
   tastiera     -> + / - luminosità, Esc esci
 Salva in ~/Desktop/ki_la_visto/registrazioni/Kinect v2/ (video e foto).
 """

@@ -5,10 +5,10 @@ modo 5 di camera_avanzata del Kinect v1) + overlay completo: REC, pausa,
 foto, levetta gamma, X.
 
 Comandi:
-  a tocco      -> icone a destra (foto / REC / pausa), levetta gamma a
-                  sinistra da trascinare, X in alto a destra
+  a tocco      -> icone a destra (foto / REC / pausa), levetta gamma
+                  in alto da trascinare, X in alto a destra
   pulsanti     -> rosso REC/stop, verde pausa, levetta premuta foto,
-                  giallo esci, levetta su/giu gamma (come nel v1)
+                  giallo esci, levetta destra/sinistra gamma
   tastiera     -> + / - gamma, Esc esci
 Salva in ~/Desktop/ki_la_visto/registrazioni/Kinect v2/ (video e foto).
 """

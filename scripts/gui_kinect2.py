@@ -6,7 +6,8 @@ GUI principale della "Kinect Camera 2", stile pulsantiera di una videocamera
 anni 2000 (argento spazzolato, tasti in plastica in rilievo).
 
     (D)                                   [ 4.98V ] [X]
-
+                                                 LEVEL
+                                                 [LED]   <- livello microfono
                  ___________________
                /  CAMERA | INFRAROSSI \
               |       ( K )            |
@@ -21,6 +22,9 @@ anni 2000 (argento spazzolato, tasti in plastica in rilievo).
   PALETTE     -> per ora non fa nulla (si preme, ma niente azione)
   D           -> DOOM (doom_ponte.py, comandi fisici come nella Camera 1)
   X           -> chiude l'app
+  LEVEL       -> misuratore del microfono del Kinect (somma dei 4 microfoni,
+                 in dB come finirebbe nel video). Solo ascolto: il microfono
+                 viene lasciato libero appena si apre una camera.
 
 Comandi:
   - tocco / mouse su tutti i tasti
@@ -56,6 +60,13 @@ try:
 except Exception:
     def leggi_tensione_ingresso():
         return None
+
+try:  # microfono del Kinect, per l'indicatore di livello nel menu
+    from overlay_kinect2 import (MicrofonoKinect, StrumentoLivello, VU_MIN_DB,
+                                 VU_GIALLO_DB, VU_ROSSO_DB)
+except Exception as _ex:
+    print(f"[KINECT2-GUI] Indicatore microfono non disponibile: {_ex}")
+    MicrofonoKinect = None
 
 CARTELLA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
@@ -112,6 +123,13 @@ TESTO_DOOM = "#c62828"
 TESTO_LCD = "#1e281e"
 TESTO_LCD_SPENTO = "#9aaa91"    # i segmenti "spenti" dell'LCD (88.88V in trasparenza)
 TESTO_BADGE = "#1f4fb5"         # blu tipo "30x OPTICAL ZOOM"
+# LED del misuratore di livello: (acceso, spento) — da spenti si intravedono,
+# come i veri LED dietro il vetro scuro degli apparecchi di quegli anni.
+LED_VERDE = ("#3fe05c", "#0f2a14")
+LED_GIALLO = ("#ffd23f", "#2e2a10")
+LED_ROSSO = ("#ff3b30", "#33100e")
+TESTO_SCALA = "#9aa3ad"         # numeri della scala dB, stampati sul vetro
+VU_SEGMENTI = 16
 
 SS = 2  # disegniamo a risoluzione doppia e poi rimpiccioliamo: bordi lisci
 
@@ -172,6 +190,12 @@ class Pannello:
         lcd_x1 = self.rett_x[0] - 0.035 * u
         self.rett_lcd = (lcd_x1 - lcd_w, lcd_cy - lcd_h / 2, lcd_x1, lcd_cy + lcd_h / 2)
         self.badge = (W - m - 0.15 * u, H - m - 0.06 * u, 0.145 * u, 0.05 * u)  # cx, cy, semiassi
+        # Misuratore di livello del microfono, a destra della ghiera
+        x_c = (self.cx + self.R_conca + W - m) / 2
+        vu_l = 0.16 * u
+        vu_y0 = self.rett_x[3] + 0.10 * u
+        vu_y1 = self.badge[1] - self.badge[3] - 0.07 * u
+        self.rett_vu = (x_c - vu_l / 2, vu_y0, x_c + vu_l / 2, vu_y1)
         self.cache = {}
         self._varianti = {}
         self._lucchetto = threading.Lock()
@@ -248,6 +272,16 @@ class Pannello:
         bx, by, ax, ay = self.badge
         badge = ((xx - bx) / ax) ** 2 + ((yy - by) / ay) ** 2 <= 1
         self.maschere["badge"] = finisci(badge)
+
+        x0, y0, x1, y1 = self.rett_vu
+        b = 0.014 * self.u
+        cornice = np.zeros(xx.shape, np.uint8)
+        cv2.rectangle(cornice, (int((x0 - b) * SS), int((y0 - b) * SS)),
+                      (int((x1 + b) * SS), int((y1 + b) * SS)), 255, -1)
+        self.maschere["vu_cornice"] = finisci(cornice > 0, True)
+        vetro = np.zeros(xx.shape, np.uint8)
+        cv2.rectangle(vetro, (int(x0 * SS), int(y0 * SS)), (int(x1 * SS), int(y1 * SS)), 255, -1)
+        self.maschere["vu_vetro"] = finisci(vetro > 0)
 
     # --- primitive di disegno -------------------------------------------
     def _tasto(self, img, nome, alto=None, basso=None, stile="rilievo",
@@ -359,6 +393,10 @@ class Pannello:
                     stile="incavo")
         self._tasto(img, "lcd", COLORI["lcd_alto"], COLORI["lcd_basso"], stile="incavo")
         self._tasto(img, "badge", colore_fn=self._cromato((self.badge[0], self.badge[1])))
+        # finestrella del livello: cornice incassata + vetro nero
+        self._tasto(img, "vu_cornice", COLORI["incavo_alto"] * 0.7, COLORI["incavo_basso"] * 0.8,
+                    stile="incavo")
+        self._tasto(img, "vu_vetro", _bgr("#14171a"), _bgr("#050607"), stile="incavo")
         self._graffia_logo(img)
         return img
 
@@ -669,10 +707,14 @@ class AppKinectCamera2:
         self.canvas.bind("<ButtonRelease-1>", self._tocco_su)
 
         self.bridge = BridgeInputMenu()
-        self.processi = GestoreProcessi(self.root, prima=self.bridge.ferma, dopo=self._avvia_bridge,
+        self.microfono = None
+        self.processi = GestoreProcessi(self.root, prima=self._cedi_hardware,
+                                        dopo=self._riprendi_hardware,
                                         al_ritorno=self._schermo_intero)
         self._avvia_bridge()
+        self._avvia_microfono()
         self._aggiorna_tensione()
+        self._aggiorna_vu()
         self._thread_precalcolo = None
         self.root.after(200, self._precalcola)
 
@@ -751,6 +793,7 @@ class AppKinectCamera2:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         self.canvas.create_text(cx, cy, text="88.88V", font=font_lcd, fill=TESTO_LCD_SPENTO)
         self.id_volt = self.canvas.create_text(cx, cy, text="--.--V", font=font_lcd, fill=TESTO_LCD)
+        self._crea_vu()
 
         # in basso a sinistra c'è il logo graffiato (disegnato nello sfondo,
         # vedi Pannello._graffia_logo): nessuna scritta.
@@ -764,6 +807,77 @@ class AppKinectCamera2:
                                 fill=TESTO_BADGE, anchor="w")
         self.canvas.create_text(bx - 0.02 * u, by + 0.015 * u, text="FLIGHT", font=font_badge,
                                 fill=TESTO_BADGE, anchor="w")
+
+    # --- hardware condiviso con le camere -----------------------------------
+    def _cedi_hardware(self):
+        """Prima di aprire una camera: pulsanti E microfono vanno liberati
+        (il microfono si può aprire da un solo programma alla volta)."""
+        self.bridge.ferma()
+        self._ferma_microfono()
+
+    def _riprendi_hardware(self):
+        self._avvia_bridge()
+        self._avvia_microfono()
+
+    def _avvia_microfono(self):
+        if MicrofonoKinect is None:
+            return
+        self._ferma_microfono()
+        self.microfono = MicrofonoKinect()  # solo ascolto: non scrive nessun file
+        self.vu = StrumentoLivello()
+
+    def _ferma_microfono(self):
+        if self.microfono is not None:
+            self.microfono.chiudi()
+            self.microfono = None
+
+    # --- misuratore di livello ------------------------------------------
+    def _crea_vu(self):
+        """LED a segmenti dietro il vetro nero + scala in dB stampata accanto."""
+        p = self.pannello
+        u = p.u
+        x0, y0, x1, y1 = p.rett_vu
+        pad = 0.022 * u
+        self._vu_led = []
+        led_x1 = x1 - 0.022 * u
+        led_x0 = led_x1 - 0.05 * u
+        cima, fondo = y0 + pad, y1 - 0.06 * u
+        passo = (fondo - cima) / VU_SEGMENTI
+        for i in range(VU_SEGMENTI):  # i = 0 in basso
+            db = VU_MIN_DB + (i + 0.5) / VU_SEGMENTI * -VU_MIN_DB
+            colori = LED_ROSSO if db >= VU_ROSSO_DB else (LED_GIALLO if db >= VU_GIALLO_DB else LED_VERDE)
+            ya, yb = fondo - (i + 1) * passo + 1.5, fondo - i * passo - 1.5
+            r = self.canvas.create_rectangle(led_x0, ya, led_x1, yb, fill=colori[1], outline="#000000")
+            self._vu_led.append([r, colori, False])
+        font_scala = tkfont.Font(family="DejaVu Sans Mono", size=-int(0.03 * u), weight="bold")
+        for db in (0, -6, -12, -24, -36, -48):
+            y = fondo - (db - VU_MIN_DB) / -VU_MIN_DB * (fondo - cima)
+            self.canvas.create_line(led_x0 - 0.016 * u, y, led_x0 - 0.004 * u, y, fill=TESTO_SCALA)
+            self.canvas.create_text(led_x0 - 0.022 * u, y, text=str(db), font=font_scala,
+                                    fill=TESTO_SCALA, anchor="e")
+        font_mic = tkfont.Font(family="DejaVu Sans", size=-int(0.03 * u), weight="bold")
+        self.id_vu_testo = self.canvas.create_text((x0 + x1) / 2, y1 - 0.03 * u, text="MIC",
+                                                   font=font_mic, fill=TESTO_SCALA)
+        font_titolo = tkfont.Font(family="DejaVu Sans", size=-int(0.032 * u), weight="bold")
+        self._testo_inciso((x0 + x1) / 2, y0 - 0.045 * u, "L E V E L", font_titolo)
+
+    def _aggiorna_vu(self):
+        if self.root.state() != "withdrawn":
+            attivo = self.microfono is not None and self.microfono.disponibile
+            if attivo:
+                self.vu.aggiorna(self.microfono.prendi_picco())
+                accesi = int(round(StrumentoLivello.frazione(self.vu.db) * VU_SEGMENTI))
+                picco = int(StrumentoLivello.frazione(self.vu.picco_db) * VU_SEGMENTI - 1e-6)
+            else:
+                accesi, picco = 0, -1
+            for i, led in enumerate(self._vu_led):
+                acceso = i < accesi or (i == picco and picco >= 1)
+                if acceso != led[2]:  # tocchiamo solo i LED che cambiano
+                    self.canvas.itemconfig(led[0], fill=led[1][0] if acceso else led[1][1])
+                    led[2] = acceso
+            testo, colore = ("MIC", TESTO_SCALA) if attivo else ("NO MIC", LED_ROSSO[0])
+            self.canvas.itemconfig(self.id_vu_testo, text=testo, fill=colore)
+        self.root.after(50, self._aggiorna_vu)
 
     def _aggiorna_tensione(self):
         v = leggi_tensione_ingresso()
@@ -838,6 +952,7 @@ class AppKinectCamera2:
             t.join(timeout=3)
         self.processi.chiudi_tutto()
         self.bridge.ferma()
+        self._ferma_microfono()
         self.root.destroy()
 
     def avvia(self):

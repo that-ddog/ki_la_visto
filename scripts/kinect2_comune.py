@@ -275,7 +275,7 @@ def _collega_pulsanti(chiedi_uscita, overlay=None):
       - con overlay: ESATTAMENTE gli stessi comandi delle camere del v1
         (input_fisico.collega_controlli_camera): rosso = REC/stop,
         verde = pausa, pressione levetta = foto, giallo = esci,
-        levetta su/giù = gamma (applicata a ogni frame nel ciclo)
+        levetta destra/sinistra = gamma (applicata a ogni frame nel ciclo)
     Ritorna True se l'hardware è stato preso (da rilasciare all'uscita)."""
     try:
         import input_fisico
@@ -283,7 +283,7 @@ def _collega_pulsanti(chiedi_uscita, overlay=None):
         if overlay is not None:
             input_fisico.collega_controlli_camera(comandi, overlay)
             _log("Pulsanti fisici collegati come nel v1 (rosso REC, verde pausa, "
-                 "levetta premuta foto, giallo esci, levetta su/giu gamma)")
+                 "levetta premuta foto, giallo esci, levetta dx/sx gamma)")
         else:
             comandi.imposta_modalita("camera")
             comandi.registra("camera", "su", chiedi_uscita)
@@ -296,6 +296,19 @@ def _collega_pulsanti(chiedi_uscita, overlay=None):
 
 def _su_sigterm(signum, frame):
     raise SystemExit(0)
+
+
+def _levetta_gamma_orizzontale(overlay, velocita=0.03):
+    """Analogico a destra/sinistra -> gamma su/giù, in modo continuo e
+    proporzionale a quanto è inclinato (come nel v1, ma sull'asse X: l'asse
+    Y resta libero per lo zoom che verrà)."""
+    if not overlay.con_gamma:
+        return
+    import input_fisico
+    x, _ = input_fisico.leggi_levetta()
+    if x != 0.0:
+        g = overlay.stato_gamma["gamma"] + x * velocita
+        overlay.stato_gamma["gamma"] = round(max(overlay.gamma_min, min(overlay.gamma_max, g)), 3)
 
 
 def _alla_misura_overlay(img, overlay):
@@ -470,8 +483,7 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
                 else:
                     frame_rec = img
                 if hardware:
-                    import input_fisico
-                    input_fisico.applica_levetta_gamma(overlay)
+                    _levetta_gamma_orizzontale(overlay)
                 overlay.gestisci_frame(frame_rec)
                 img = _alla_misura_overlay(img, overlay)
 
