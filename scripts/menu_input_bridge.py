@@ -19,12 +19,19 @@ Righe stampate su stdout (una per evento, con flush immediato):
     SELEZIONA                     -> il pulsante "giù" è stato premuto
     DOOM                           -> (per ora non emessa: combo troppo scomoda con 7 pulsanti)
     MUOVI su|giu|sinistra|destra   -> la levetta ha superato la soglia in quella direzione
+    MUOVI su-destra|su-sinistra|giu-destra|giu-sinistra
+                                   -> SOLO con l'opzione --diagonali (GUI della Kinect Camera 2,
+                                      per arrivare al tasto K al centro della ghiera)
     ERRORE <messaggio>             -> hardware non disponibile
+
+Senza --diagonali il comportamento è identico a prima (Kinect Camera 1).
 """
 
 import ctypes
+import math
 import os
 import signal
+import sys
 import time
 
 import input_fisico
@@ -32,6 +39,43 @@ import input_fisico
 SOGLIA_LEVETTA = 0.5
 COOLDOWN_MOVIMENTO_S = 0.35
 INTERVALLO_CICLO_S = 0.05
+
+# --- Modalità con diagonali (--diagonali) ---------------------------------
+# La direzione si decide dall'ANGOLO della levetta, in 8 spicchi da 45°.
+# Per non scambiare un movimento in diagonale per uno dritto (mentre la
+# levetta "passa" verso l'angolo), la direzione deve restare la stessa per
+# LETTURE_CONFERMA letture di fila prima di essere inviata.
+SOGLIA_DIAGONALI = 0.6
+LETTURE_CONFERMA = 2
+MARGINE_DRITTE_GRADI = 30
+DIREZIONI_8 = ["destra", "su-destra", "su", "su-sinistra",
+               "sinistra", "giu-sinistra", "giu", "giu-destra"]
+
+
+def direzione_8(x, y):
+    """Ritorna una delle 8 direzioni, o None se la levetta è vicina al centro."""
+    if math.hypot(x, y) < SOGLIA_DIAGONALI:
+        return None
+    angolo = math.degrees(math.atan2(y, x)) % 360  # 0 = destra, 90 = su
+    # Dritte più "larghe" (±30°) delle diagonali (30°-60°): una spinta
+    # orizzontale un po' storta resta orizzontale, la diagonale va voluta.
+    vicina_dritta = round(angolo / 90) % 4            # 0 destra, 1 su, 2 sinistra, 3 giu
+    if abs(angolo - round(angolo / 90) * 90) <= MARGINE_DRITTE_GRADI:
+        return DIREZIONI_8[vicina_dritta * 2]
+    return DIREZIONI_8[(int(angolo // 90) * 2 + 1) % 8]
+
+
+def direzione_4(x, y):
+    """La logica originale (Kinect Camera 1): prima l'asse X, poi la Y."""
+    if x > SOGLIA_LEVETTA:
+        return "destra"
+    if x < -SOGLIA_LEVETTA:
+        return "sinistra"
+    if y > SOGLIA_LEVETTA:
+        return "su"
+    if y < -SOGLIA_LEVETTA:
+        return "giu"
+    return None
 
 
 # Se la GUI che ci ha lanciato muore (chiusura forzata, xkill...), questo
@@ -84,26 +128,27 @@ def main():
     # GestoreComandi (registra_combo_tutti) se in futuro torna utile con
     # meno pulsanti richiesti o un'altra idea.
 
+    diagonali = "--diagonali" in sys.argv
     ultimo_movimento = 0.0
+    candidata, conferme = None, 0
     try:
         while not _stato["esci"]:
             if os.getppid() != _GENITORE:
                 break  # GUI morta: liberiamo i GPIO
             x, y = input_fisico.leggi_levetta()
             ora = time.time()
-            if ora - ultimo_movimento > COOLDOWN_MOVIMENTO_S:
-                direzione = None
-                if x > SOGLIA_LEVETTA:
-                    direzione = "destra"
-                elif x < -SOGLIA_LEVETTA:
-                    direzione = "sinistra"
-                elif y > SOGLIA_LEVETTA:
-                    direzione = "su"
-                elif y < -SOGLIA_LEVETTA:
-                    direzione = "giu"
-                if direzione:
-                    emetti(f"MUOVI {direzione}")
-                    ultimo_movimento = ora
+            if diagonali:
+                letta = direzione_8(x, y)
+                if letta == candidata:
+                    conferme += 1
+                else:
+                    candidata, conferme = letta, 1
+                direzione = candidata if conferme >= LETTURE_CONFERMA else None
+            else:
+                direzione = direzione_4(x, y)
+            if direzione and ora - ultimo_movimento > COOLDOWN_MOVIMENTO_S:
+                emetti(f"MUOVI {direzione}")
+                ultimo_movimento = ora
             time.sleep(INTERVALLO_CICLO_S)
     except (KeyboardInterrupt, SystemExit):
         pass

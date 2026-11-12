@@ -72,6 +72,10 @@ def _log(testo):
 def colore_in_bgr(bgrx, larghezza=LARGHEZZA_COLORE_MOSTRATO):
     """Colore 1920x1080 (BGRX) -> BGR largo 'larghezza', proporzioni 16:9."""
     bgr = bgrx[:, :, :3]
+    if larghezza == bgr.shape[1]:
+        # Piena risoluzione: nessun ridimensionamento, solo una copia
+        # "compatta" (serve: il buffer del Kinect viene riusato subito dopo).
+        return np.ascontiguousarray(bgr)
     h = int(round(larghezza * bgr.shape[0] / bgr.shape[1]))
     return cv2.resize(bgr, (larghezza, h), interpolation=cv2.INTER_AREA)
 
@@ -351,6 +355,11 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
             passo = GAMMA_PASSO if tasto != ord('-') else -GAMMA_PASSO
             g = overlay.stato_gamma["gamma"] + passo
             overlay.stato_gamma["gamma"] = round(max(overlay.gamma_min, min(overlay.gamma_max, g)), 3)
+        elif (overlay is not None and overlay.con_modo and ord('1') <= tasto <= ord('9')
+              and overlay.modo_min <= tasto - ord('0') <= overlay.modo_max):
+            # Tasti numerici = scelta diretta della modalità (come camera_avanzata del v1)
+            overlay.stato_modo["modalita"] = tasto - ord('0')
+            _log(f"Modalita -> {overlay.stato_modo['modalita']}")
         return bisogna_uscire()
 
     def aspetta_uscita(img):
@@ -453,11 +462,18 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
                 # ci disegniamo sopra l'overlay per lo schermo.
                 if img.ndim == 2:
                     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-                img = _alla_misura_overlay(img, overlay)  # il video vuole sempre la stessa misura
+                # REC e foto alla loro misura (Full HD per la camera normale),
+                # lo schermo alla misura dell'overlay (icone sempre comode).
+                rec_w, rec_h = overlay.misura_registrazione
+                if img.shape[1] != rec_w or img.shape[0] != rec_h:
+                    frame_rec = cv2.resize(img, (rec_w, rec_h), interpolation=cv2.INTER_AREA)
+                else:
+                    frame_rec = img
                 if hardware:
                     import input_fisico
                     input_fisico.applica_levetta_gamma(overlay)
-                overlay.gestisci_frame(img)
+                overlay.gestisci_frame(frame_rec)
+                img = _alla_misura_overlay(img, overlay)
 
             if n_frame == 0:
                 _log(f"Primo frame dopo {ora - t_inizio:.1f} s")
