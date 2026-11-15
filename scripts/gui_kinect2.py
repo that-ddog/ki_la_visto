@@ -19,7 +19,8 @@ anni 2000 (argento spazzolato, tasti in plastica in rilievo).
   INFRAROSSI  -> camera a infrarossi                (kinect2_infrarossi2.py)
   K (centro)  -> camera di profondità con modalità  (kinect2_avanzata.py)
   MEDIA       -> apre la cartella con foto e video (la GUI resta aperta)
-  PALETTE     -> per ora non fa nulla (si preme, ma niente azione)
+  PALETTE     -> schermate per scegliere due colori (palette_experience.py),
+                 poi camera di profondità sfumata fra i due (kinect2_palette.py)
   D           -> DOOM (doom_ponte.py, comandi fisici come nella Camera 1)
   X           -> chiude l'app
   LEVEL       -> misuratore del microfono del Kinect (somma dei 4 microfoni,
@@ -68,6 +69,12 @@ except Exception as _ex:
     print(f"[KINECT2-GUI] Indicatore microfono non disponibile: {_ex}")
     MicrofonoKinect = None
 
+try:  # schermate "PALETTE" (scelta dei due colori)
+    from palette_experience import PaletteExperience
+except Exception as _ex:
+    print(f"[KINECT2-GUI] Palette non disponibile: {_ex}")
+    PaletteExperience = None
+
 CARTELLA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 VENV_PYTHON = os.path.expanduser("~/kinect-py311/bin/python3")
 SCRIPT_MENU_INPUT_BRIDGE = os.path.join(CARTELLA_SCRIPT, "menu_input_bridge.py")
@@ -78,6 +85,7 @@ SCRIPT_DOOM_PONTE = os.path.join(CARTELLA_SCRIPT, "doom_ponte.py")
 COMANDO_DOOM = shutil.which("chocolate-doom") or "/usr/games/chocolate-doom"
 
 # Cosa lancia ogni tasto della ghiera (None = nessuno script, azione speciale)
+SCRIPT_PALETTE = "kinect2_palette.py"   # camera lanciata dalla schermata PALETTE, con i due colori
 SCRIPT_TASTI = {
     "camera": "kinect2_camera_normale.py",
     "infrarossi": "kinect2_infrarossi2.py",
@@ -569,12 +577,12 @@ class GestoreProcessi:
         self._al_ritorno = al_ritorno
         self._processo = None
 
-    def avvia_script(self, nome_script):
+    def avvia_script(self, nome_script, *argomenti):
         percorso = os.path.join(CARTELLA_SCRIPT, nome_script)
         if not os.path.isfile(VENV_PYTHON) or not os.path.isfile(percorso):
             messagebox.showerror("Errore avvio", f"Non trovo:\n{VENV_PYTHON}\no\n{percorso}")
             return
-        self.avvia_processo([VENV_PYTHON, "-u", percorso])
+        self.avvia_processo([VENV_PYTHON, "-u", percorso, *argomenti])
 
     def avvia_doom(self):
         if not os.path.isfile(COMANDO_DOOM):
@@ -711,6 +719,13 @@ class AppKinectCamera2:
         self.processi = GestoreProcessi(self.root, prima=self._cedi_hardware,
                                         dopo=self._riprendi_hardware,
                                         al_ritorno=self._schermo_intero)
+        # Schermate PALETTE: un secondo "foglio" che prende il posto del menu
+        self.palette = None
+        if PaletteExperience is not None:
+            self.palette = PaletteExperience(
+                self.root, self.W, self.H, al_menu=self._torna_al_menu, chiudi_app=self.chiudi,
+                avvia_experience=lambda vicino, lontano:
+                    self.processi.avvia_script(SCRIPT_PALETTE, vicino, lontano))
         self._avvia_bridge()
         self._avvia_microfono()
         self._aggiorna_tensione()
@@ -738,8 +753,26 @@ class AppKinectCamera2:
         """Le immagini pesanti si calcolano in un thread a parte (numpy e
         OpenCV lavorano in parallelo a Tk); le PhotoImage di Tk invece si
         creano solo qui nel thread principale, al bisogno."""
-        self._thread_precalcolo = threading.Thread(target=self.pannello.precalcola, daemon=True)
+        def lavoro():
+            self.pannello.precalcola()
+            if self.palette is not None and not self.pannello.ferma_precalcolo.is_set():
+                try:
+                    self.palette.prepara()  # così il tasto PALETTE si apre subito
+                except Exception as ex:
+                    print(f"[KINECT2-GUI] Preparazione palette: {ex}")
+        self._thread_precalcolo = threading.Thread(target=lavoro, daemon=True)
         self._thread_precalcolo.start()
+
+    # --- schermate PALETTE ------------------------------------------------
+    def _apri_palette(self):
+        if self.palette is None:
+            return
+        self.canvas.pack_forget()
+        self.palette.mostra()
+
+    def _torna_al_menu(self):
+        self.canvas.pack(fill="both", expand=True)
+        self._aggiorna_immagine()
 
     # --- scritte (testo di Tk sopra l'immagine) -------------------------
     def _testo_inciso(self, x, y, testo, font, colore=TESTO_INCISO, luce=TESTO_LUCE, **kw):
@@ -908,6 +941,8 @@ class AppKinectCamera2:
         self.bridge.avvia(lambda riga: self.root.after(0, self._gestisci_riga, riga))
 
     def _gestisci_riga(self, riga):
+        if self.palette is not None and self.palette.visibile:
+            return  # nelle schermate PALETTE si usa solo il tocco
         if riga == "SELEZIONA":
             # piccolo "click" visivo, poi l'azione
             self.premuto = self.selezionato
@@ -937,7 +972,7 @@ class AppKinectCamera2:
         elif tasto == "media":
             apri_cartella(CARTELLA_MEDIA)
         elif tasto == "palette":
-            pass  # per ora vuoto: ne parleremo
+            self._apri_palette()
         elif tasto == "d":
             self.processi.avvia_doom()
         elif tasto == "x":
@@ -949,7 +984,7 @@ class AppKinectCamera2:
         self.pannello.ferma_precalcolo.set()
         t = getattr(self, "_thread_precalcolo", None)
         if t is not None and t.is_alive():
-            t.join(timeout=3)
+            t.join(timeout=10)
         self.processi.chiudi_tutto()
         self.bridge.ferma()
         self._ferma_microfono()

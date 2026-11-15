@@ -149,6 +149,39 @@ def profondita_gamma_a_colori(depth, gamma, colormap=cv2.COLORMAP_TURBO):
     return colorata
 
 
+# --- Palette Experience: profondità sfumata fra DUE colori scelti ----------
+def colore_da_esadecimale(testo):
+    """'#RRGGBB' (o 'RRGGBB') -> (B, G, R) come vuole OpenCV."""
+    e = testo.strip().lstrip("#")
+    if len(e) != 6:
+        raise ValueError(f"colore non valido: {testo!r}")
+    return int(e[4:6], 16), int(e[2:4], 16), int(e[0:2], 16)
+
+
+def tavola_due_colori(vicino_bgr, lontano_bgr):
+    """Tavola di 256 colori: indice 255 = il più vicino (colore 1), indice 0
+    = il più lontano (colore 2), in mezzo la sfumatura fra i due."""
+    t = np.linspace(0.0, 1.0, 256, dtype=np.float32)[:, None]  # 0 = lontano, 1 = vicino
+    lontano = np.array(lontano_bgr, np.float32)
+    vicino = np.array(vicino_bgr, np.float32)
+    return np.round(lontano * (1 - t) + vicino * t).astype(np.uint8).reshape(256, 1, 3)
+
+
+def profondita_due_colori(depth, gamma, tavola):
+    """Come profondita_gamma (stessa curva, stessa levetta), ma al posto dei
+    grigi usa la sfumatura dal colore 1 (vicino) al colore 2 (lontano).
+    Dove il Kinect non ha dato resta nero."""
+    valida = depth > 0
+    clip = np.clip(depth, DISTANZA_MIN_MM, DISTANZA_MAX_MM)
+    v = (clip - DISTANZA_MIN_MM) / (DISTANZA_MAX_MM - DISTANZA_MIN_MM)  # 0=vicino, 1=lontano
+    indice = (255 * (1 - np.power(v, gamma))).astype(np.uint8)
+    if DIMENSIONE_FILTRO_RUMORE > 1:
+        indice = cv2.medianBlur(indice, DIMENSIONE_FILTRO_RUMORE)
+    colorata = cv2.applyColorMap(indice, tavola)
+    colorata[~valida] = 0
+    return colorata
+
+
 # --- Disegno: X per uscire e schermate di messaggio --------------------------
 def _lato_x(img):
     return max(28, img.shape[1] // 14)
