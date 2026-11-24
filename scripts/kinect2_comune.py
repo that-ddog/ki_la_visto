@@ -307,16 +307,22 @@ def _collega_pulsanti(chiedi_uscita, overlay=None):
       - senza overlay: solo giallo = esci
       - con overlay: ESATTAMENTE gli stessi comandi delle camere del v1
         (input_fisico.collega_controlli_camera): rosso = REC/stop,
-        verde = pausa, pressione levetta = foto, giallo = esci,
-        levetta destra/sinistra = gamma (applicata a ogni frame nel ciclo)
+        verde = pausa, giallo = esci, levetta destra/sinistra = gamma
+        (applicata a ogni frame nel ciclo).
+        UNICA differenza dal v1: la FOTO è su LB, e la pressione della
+        levetta resta libera (servirà per passare dalla gamma allo zoom).
     Ritorna True se l'hardware è stato preso (da rilasciare all'uscita)."""
     try:
         import input_fisico
         comandi = input_fisico.inizializza()
         if overlay is not None:
             input_fisico.collega_controlli_camera(comandi, overlay)
-            _log("Pulsanti fisici collegati come nel v1 (rosso REC, verde pausa, "
-                 "levetta premuta foto, giallo esci, levetta dx/sx gamma)")
+            # Solo nel Kinect 2: foto su LB, levetta premuta libera.
+            # (input_fisico.py non si tocca: la Camera 1 resta com'era.)
+            comandi.profili["camera"].pop("stick", None)
+            comandi.registra("camera", "lb", overlay.scatta_foto)
+            _log("Pulsanti fisici collegati (rosso REC, verde pausa, LB foto, "
+                 "giallo esci, levetta dx/sx gamma, levetta premuta libera)")
         else:
             comandi.imposta_modalita("camera")
             comandi.registra("camera", "su", chiedi_uscita)
@@ -334,11 +340,17 @@ def _su_sigterm(signum, frame):
 def _levetta_gamma_orizzontale(overlay, velocita=0.03):
     """Analogico a destra/sinistra -> gamma su/giù, in modo continuo e
     proporzionale a quanto è inclinato (come nel v1, ma sull'asse X: l'asse
-    Y resta libero per lo zoom che verrà)."""
+    Y resta libero per lo zoom che verrà).
+    Se l'overlay ha un metodo usa_levetta(x, y) che ritorna True (es. la
+    modalità SAGOMA della K, dove la levetta sposta le soglie), la levetta
+    la usa lui e la gamma non viene toccata."""
+    import input_fisico
+    x, y = input_fisico.leggi_levetta()
+    usa_levetta = getattr(overlay, "usa_levetta", None)
+    if usa_levetta is not None and usa_levetta(x, y):
+        return
     if not overlay.con_gamma:
         return
-    import input_fisico
-    x, _ = input_fisico.leggi_levetta()
     if x != 0.0:
         g = overlay.stato_gamma["gamma"] + x * velocita
         overlay.stato_gamma["gamma"] = round(max(overlay.gamma_min, min(overlay.gamma_max, g)), 3)
@@ -401,7 +413,7 @@ def esegui_camera(nome_finestra, colore, profondita, elabora, overlay=None):
             passo = GAMMA_PASSO if tasto != ord('-') else -GAMMA_PASSO
             g = overlay.stato_gamma["gamma"] + passo
             overlay.stato_gamma["gamma"] = round(max(overlay.gamma_min, min(overlay.gamma_max, g)), 3)
-        elif (overlay is not None and overlay.con_modo and ord('1') <= tasto <= ord('9')
+        elif (overlay is not None and overlay.con_modo and ord('0') <= tasto <= ord('9')
               and overlay.modo_min <= tasto - ord('0') <= overlay.modo_max):
             # Tasti numerici = scelta diretta della modalità (come camera_avanzata del v1)
             overlay.stato_modo["modalita"] = tasto - ord('0')

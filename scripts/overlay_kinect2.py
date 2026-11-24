@@ -18,14 +18,16 @@ Audio (microfono del Kinect v2, 4 microfoni, 16 kHz, 24 bit utili):
   (arecord, in un thread a parte), ma i dati finiscono nel file SOLO mentre
   si registra e non si è in pausa: così audio e video partono, si fermano e
   vanno in pausa insieme. Allo stop:
-    v2_NNNN_DDMMYY.wav  -> i 4 canali GREZZI, intatti (tutto il rumore)
     v2_NNNN_DDMMYY.mp4  -> il video con l'audio: stereo (microfono 1 a
                            sinistra, 4 a destra, i due più distanti),
                            alzato di volume e con un limitatore che evita
                            solo la distorsione sui suoni forti. Nessuna
                            riduzione del rumore.
+  Durante la REC l'audio va in un .wav provvisorio (4 canali grezzi); a
+  unione riuscita il .wav viene cancellato (TIENI_WAV = True per tenerlo).
   L'unione la fa ffmpeg in sottofondo (pochi secondi): la camera non si
-  blocca. Senza ffmpeg o senza microfono il video si salva comunque, muto.
+  blocca. Senza ffmpeg o senza microfono il video si salva comunque, muto,
+  e in quel caso il .wav resta perché è l'unica copia dell'audio.
 
 Durata dei video:
   Con il Kinect v1 gli fps erano sempre 30, quindi bastava scrivere ogni
@@ -78,6 +80,11 @@ COMANDO_MICROFONO = ["arecord", "-q", "-D", DISPOSITIVO_AUDIO, "-c", str(CANALI_
 # --- Audio nel video finale ------------------------------------------------
 CANALE_SINISTRO = 1      # microfoni 1..4; 1 e 4 sono i più distanti fra loro.
 CANALE_DESTRO = 4        # Se destra e sinistra risultano invertite, scambia questi due.
+# Il .wav con i 4 microfoni grezzi serve solo finché l'audio non è dentro
+# l'mp4: a unione riuscita viene cancellato. Metti True per tenerlo sempre.
+# (Se l'unione non riesce, o manca ffmpeg, il .wav resta comunque: è l'unica
+# copia dell'audio.)
+TIENI_WAV = False
 GUADAGNO_AUDIO_DB = 24   # il microfono grezzo è molto basso (picchi intorno a -30 dB)
 
 
@@ -287,8 +294,9 @@ class StrumentoLivello:
 
 def _unisci_audio_video(muto, wav, finale):
     """Unisce video muto + WAV in 'finale', in sottofondo (processo staccato:
-    finisce anche se la camera viene chiusa subito dopo). Se qualcosa va
-    storto, il video muto diventa comunque il file finale e il WAV resta."""
+    finisce anche se la camera viene chiusa subito dopo). Se va tutto bene
+    resta solo l'mp4 con l'audio (il WAV si cancella, salvo TIENI_WAV). Se
+    qualcosa va storto, il video muto diventa il file finale e il WAV resta."""
     try:
         with wave.open(wav) as w:
             vuoto = w.getnframes() == 0
@@ -316,6 +324,7 @@ def _unisci_audio_video(muto, wav, finale):
                f"-filter_complex {q(filtro)} -map 0:v -map '[a]' -c:v copy "
                f"-c:a aac -b:a 160k -shortest {q(parte)} "
                f"&& mv -f {q(parte)} {q(finale)} && rm -f {q(muto)} "
+               f"{'' if TIENI_WAV else '&& rm -f ' + q(wav) + ' '}"
                f"|| {{ rm -f {q(parte)}; mv -f {q(muto)} {q(finale)}; }}")
     subprocess.Popen(["sh", "-c", comando], start_new_session=True)
     _log_audio(f"Unione audio+video in corso -> {finale}")
@@ -564,6 +573,16 @@ class ControlliOverlayV2(ControlliOverlay):
         if self.microfono is not None:
             self.microfono.chiudi()
 
+    def _cambia_modo(self, direzione):
+        """Come nel v1 ma NON ciclico: arrivati alla prima (o all'ultima)
+        modalità, la freccia verso fuori non fa più niente."""
+        if not self.con_modo:
+            return
+        nuovo = max(self.modo_min, min(self.modo_max, self.stato_modo["modalita"] + direzione))
+        if nuovo != self.stato_modo["modalita"]:
+            self.stato_modo["modalita"] = nuovo
+            print(f"[STATO] Modalità -> {nuovo}")
+
     def _disegna_selettore_modo(self, frame):
         r = self.raggio_freccia
         y = self.y_modo
@@ -574,12 +593,15 @@ class ControlliOverlayV2(ControlliOverlay):
         frame[y0:y1, x0:x1] = (zona * 0.45).astype(np.uint8)
 
         bianco = (255, 255, 255)
-        for x, verso in ((self.x_freccia_sx, -1), (self.x_freccia_dx, +1)):
-            cv2.circle(frame, (x, y), r, bianco, 2, cv2.LINE_AA)
-            punta = np.array([[x + 7 * verso, y], [x - 5 * verso, y - 8], [x - 5 * verso, y + 8]])
-            cv2.fillPoly(frame, [punta], bianco, cv2.LINE_AA)
-
         n = self.stato_modo["modalita"]
+        for x, verso in ((self.x_freccia_sx, -1), (self.x_freccia_dx, +1)):
+            # freccia grigia = da quella parte non ci sono altre modalità
+            finita = (verso < 0 and n <= self.modo_min) or (verso > 0 and n >= self.modo_max)
+            col = (90, 90, 90) if finita else bianco
+            cv2.circle(frame, (x, y), r, col, 2, cv2.LINE_AA)
+            punta = np.array([[x + 7 * verso, y], [x - 5 * verso, y - 8], [x - 5 * verso, y + 8]])
+            cv2.fillPoly(frame, [punta], col, cv2.LINE_AA)
+
         testo = f"MODO {n}"
         nome = self.nomi_modo.get(n)
         if nome:

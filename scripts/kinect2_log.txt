@@ -1,66 +1,232 @@
-[PALETTE] vicino (B,G,R)=(193, 33, 255)  lontano (B,G,R)=(225, 255, 60)
-[KINECT2 15:47:29] === Avvio 'Kinect 2 - Palette Experience' (colore=False, profondita=True, GPU per la profondita, overlay=si) ===
-[KINECT2 15:47:29] Caricata /home/marcou/freenect2/lib/libfreenect2.so.0.2
+[PALETTE] vicino (B,G,R)=(255, 255, 0)  lontano (B,G,R)=(0, 128, 128)
+[KINECT2 15:16:37] === Avvio 'Kinect 2 - Palette Experience' (colore=False, profondita=True, GPU per la profondita, overlay=si) ===
+[KINECT2 15:16:37] Caricata /home/marcou/freenect2/lib/libfreenect2.so.0.2
+[AUDIO] Microfono attivo
 Couldn't open plugin directory: No such file or directory
 No plugins found, falling back on no decorations
-[AUDIO] Microfono attivo
 qt.qpa.plugin: Could not find the Qt platform plugin "wayland" in "/home/marcou/kinect-py311/lib/python3.11/site-packages/cv2/qt/plugins"
 [INPUT] Modalità comandi -> camera
-[KINECT2 15:47:29] Pulsanti fisici collegati come nel v1 (rosso REC, verde pausa, levetta premuta foto, giallo esci, levetta dx/sx gamma)
-[KINECT2 15:47:29] Cerco il Kinect...
+[KINECT2 15:16:37] Pulsanti fisici collegati (rosso REC, verde pausa, LB foto, giallo esci, levetta dx/sx gamma, levetta premuta libera)
+[KINECT2 15:16:37] Cerco il Kinect...
 [Info] [Freenect2Impl] enumerating devices...
 [Info] [Freenect2Impl] 6 usb devices connected
 [Info] [Freenect2Impl] found valid Kinect v2 @4:2 with serial 310678334247
 [Info] [Freenect2Impl] found 1 devices
-[KINECT2 15:47:29] Apro il Kinect...
+[KINECT2 15:16:37] Apro il Kinect...
 [Info] [Freenect2DeviceImpl] opening...
 [Info] [Freenect2DeviceImpl] transfer pool sizes rgb: 20*16384 ir: 60*8*33792
 [Info] [Freenect2DeviceImpl] opened
-[KINECT2 15:47:30] Avvio i flussi (colore=False, profondita=True)...[AUDIO] Microfono interrotto (arecord: pcm_read:2272: read error: File descriptor in bad state): mi riconnetto...
+[KINECT2 15:16:38] Avvio i flussi (colore=False, profondita=True)...[AUDIO] Microfono interrotto (arecord: pcm_read:2272: read error: File descriptor in bad state): mi riconnetto...
 
 [Info] [Freenect2DeviceImpl] starting...
 [Info] [Freenect2DeviceImpl] submitting depth transfers...
 [Info] [Freenect2DeviceImpl] started
-[KINECT2 15:47:30] Kinect v2 310678334247 avviato, pipeline GPU (OpenGL)
-[KINECT2 15:47:30] Primo frame dopo 0.0 s
+[KINECT2 15:16:38] Kinect v2 310678334247 avviato, pipeline GPU (OpenGL)
+[KINECT2 15:16:38] Primo frame dopo 0.0 s
 [AUDIO] Microfono attivo
-[Info] [DepthPacketStreamParser] 7 packets were lost
-[Info] [DepthPacketStreamParser] 8 packets were lost
-[Info] [DepthPacketStreamParser] 9 packets were lost
-[Info] [DepthPacketStreamParser] 9 packets were lost
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.0357ms -> ~30.2703Hz
-[KINECT2 15:47:35] ~21.0 fps medi
-[Info] [DepthPacketStreamParser] 21 packets were lost
 [Info] [DepthPacketStreamParser] 10 packets were lost
-[Info] [DepthPacketStreamParser] 10 packets were lost
-[Info] [DepthPacketStreamParser] 9 packets were lost
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.386ms -> ~29.9526Hz
-[Info] [DepthPacketStreamParser] 8 packets were lost
-[KINECT2 15:47:41] ~20.7 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:16:43] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.6444ms -> ~26.5644Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:16:48] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[REC] Avviata: /home/marcou/Desktop/ki_la_visto/registrazioni/Kinect v2/video/v2_0014_211126.mp4 (con audio)
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.7432ms -> ~26.4948Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:16:53] ~15.2 fps medi
 [Info] [DepthPacketStreamParser] 29 packets were lost
-[Info] [DepthPacketStreamParser] 11 packets were lost
-[Info] [DepthPacketStreamParser] 12 packets were lost
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.1434ms -> ~30.172Hz
-[KINECT2 15:47:46] ~20.2 fps medi
-[Info] [DepthPacketStreamParser] 12 packets were lost
-[Info] [DepthPacketStreamParser] 12 packets were lost
-[Info] [DepthPacketStreamParser] 11 packets were lost
-[Info] [DepthPacketStreamParser] 11 packets were lost
-[Info] [DepthPacketStreamParser] 11 packets were lost
-[KINECT2 15:47:51] ~19.8 fps medi
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.6704ms -> ~29.6997Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8316ms -> ~27.1506Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:16:58] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:17:03] ~15.3 fps medi
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9599ms -> ~27.0564Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:17:08] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8499ms -> ~27.1371Hz
 [Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:17:13] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9973ms -> ~27.029Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:17:18] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:17:23] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9854ms -> ~27.0377Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:17:28] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8597ms -> ~27.1299Hz
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:17:33] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8883ms -> ~27.1089Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:17:38] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:17:43] ~15.3 fps medi
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.7095ms -> ~27.2409Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:17:48] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.3396ms -> ~26.7812Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:17:53] ~15.3 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
 [Info] [DepthPacketStreamParser] 6 packets were lost
-[Info] [DepthPacketStreamParser] 11 packets were lost
-[Info] [DepthPacketStreamParser] 10 packets were lost
-[KINECT2 15:47:56] ~19.6 fps medi
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.7382ms -> ~29.64Hz
+[Info] [OpenGLDepthPacketProcessor] avg. time: 35.8706ms -> ~27.878Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:17:58] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.809ms -> ~27.1672Hz
 [Info] [DepthPacketStreamParser] 30 packets were lost
-[Info] [DepthPacketStreamParser] 13 packets were lost
-[Info] [DepthPacketStreamParser] 13 packets were lost
+[KINECT2 15:18:03] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:09] ~15.2 fps medi
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.0059ms -> ~27.0228Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:14] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.0785ms -> ~26.9698Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:18:19] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8922ms -> ~27.106Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:18:24] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[KINECT2 15:18:29] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8415ms -> ~27.1433Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:18:34] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.0004ms -> ~27.0267Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:39] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9653ms -> ~27.0524Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[KINECT2 15:18:44] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9771ms -> ~27.0437Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:49] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:54] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.9704ms -> ~27.0487Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:18:59] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.0725ms -> ~26.9742Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:04] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.0196ms -> ~27.0127Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[KINECT2 15:19:09] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:14] ~15.2 fps medi
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.1523ms -> ~26.9163Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:19:19] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.365ms -> ~26.763Hz
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:24] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 14 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 37.2565ms -> ~26.8409Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:29] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[KINECT2 15:19:34] ~15.2 fps medi
+[Info] [OpenGLDepthPacketProcessor] avg. time: 36.8732ms -> ~27.1199Hz
+[Info] [DepthPacketStreamParser] 30 packets were lost
+[Info] [DepthPacketStreamParser] 27 packets were lost
+[REC] Fermata e salvata: /home/marcou/Desktop/ki_la_visto/registrazioni/Kinect v2/video/v2_0014_211126_muto.mp4  (168.0s)
+[AUDIO] Unione audio+video in corso -> /home/marcou/Desktop/ki_la_visto/registrazioni/Kinect v2/video/v2_0014_211126.mp4
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:39] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 38.3384ms -> ~26.0835Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[KINECT2 15:19:44] ~15.2 fps medi
+[Info] [DepthPacketStreamParser] 15 packets were lost
+[Info] [DepthPacketStreamParser] 29 packets were lost
+[Info] [OpenGLDepthPacketProcessor] avg. time: 38.3275ms -> ~26.0909Hz
+[Info] [DepthPacketStreamParser] 15 packets were lost
 [INPUT] termina(): rilascio 7 pulsanti: ['su', 'giu', 'sinistra', 'destra', 'rec', 'stick', 'lb']
-[Info] [OpenGLDepthPacketProcessor] avg. time: 33.3145ms -> ~30.017Hz
-[Info] [DepthPacketStreamParser] 2 packets were lost
+[Info] [DepthPacketStreamParser] 11 packets were lost
 [INPUT] termina(): pin_factory chiusa
 [Info] [Freenect2DeviceImpl] stopping...
 [Info] [Freenect2DeviceImpl] canceling depth transfers...
@@ -70,6 +236,6 @@ qt.qpa.plugin: Could not find the Qt platform plugin "wayland" in "/home/marcou/
 [Info] [Freenect2DeviceImpl] deallocating usb transfer pools...
 [Info] [Freenect2DeviceImpl] closing usb device...
 [Info] [Freenect2DeviceImpl] closed
-[KINECT2 15:48:01] Chiuso dopo 577 frame.
+[KINECT2 15:19:49] Chiuso dopo 2889 frame.
 [Info] [Freenect2DeviceImpl] closing...
 [Info] [Freenect2DeviceImpl] already closed, doing nothing
